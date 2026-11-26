@@ -1,0 +1,25 @@
+# Learn more about configuring your app at https://shopify.dev/docs/apps/tools/cli/configuration
+
+client_id = "05263dec3dadf8a6635ec94ad270167c"
+name = "n-helixo-timer"
+application_url = "https://example.com"
+embedded = true
+
+[access_scopes]
+# Learn more at https://shopify.dev/docs/apps/tools/cli/configuration#access_scopes
+scopes = "write_products"
+
+[auth]
+redirect_urls = [ "https://example.com/api/auth/callback" ]
+
+[webhooks]
+api_version = "2027-01"
+
+  # Mandatory privacy webhooks, handled by web/privacy.js
+  [[webhooks.subscriptions]]
+  compliance_topics = [ "customers/data_request", "customers/redact", "shop/redact" ]
+  uri = "/api/webhooks"
+
+[build]
+include_config_on_deploy = true
+automatically_update_urls_on_dev = true
