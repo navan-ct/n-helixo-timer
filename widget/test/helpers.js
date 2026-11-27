@@ -19,6 +19,21 @@ export function apiTimer(overrides = {}) {
   };
 }
 
+/** An evergreen timer as the storefront API sends it. */
+export function apiEvergreenTimer(overrides = {}) {
+  return {
+    id: "e1",
+    type: "evergreen",
+    durationMinutes: 90,
+    message: "Your welcome offer ends in",
+    color: "#2c6ecb",
+    size: "medium",
+    urgency: "color_pulse",
+    priority: 1,
+    ...overrides,
+  };
+}
+
 export function apiResponse(timers = [apiTimer()], overrides = {}) {
   return {
     timers,

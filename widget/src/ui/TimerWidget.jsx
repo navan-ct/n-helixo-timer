@@ -82,7 +82,7 @@ function useDisplay(feed, clock) {
  * - otherwise nothing, and the block takes no space.
  *
  * @param {{
- *   config: { locale: string, designMode: boolean, visualPreview: boolean,
+ *   config: { designMode: boolean, visualPreview: boolean,
  *     strings: Record<string, string> },
  *   feed: ReturnType<typeof import("../core/feed.js").getFeed> | null,
  *   clock: { now: () => number, subscribe: (listener: (now: number) => void) => () => void },
@@ -90,23 +90,18 @@ function useDisplay(feed, clock) {
  * }} props
  */
 export function TimerWidget({ config, feed, clock, onVisibleChange }) {
-  const { designMode, visualPreview, strings, locale } = config;
+  const { designMode, visualPreview, strings } = config;
   const { now, status, running, ended } = useDisplay(feed ?? IDLE_FEED, clock);
 
   let content = null;
   if (running) {
-    content = <Countdown timer={running} now={now} strings={strings} locale={locale} />;
+    content = <Countdown timer={running} now={now} strings={strings} />;
   } else if (ended) {
-    content = <Countdown timer={ended} now={now} ended strings={strings} locale={locale} />;
+    content = <Countdown timer={ended} now={now} ended strings={strings} />;
   } else if (visualPreview || (designMode && status !== "loading")) {
     content = (
       <>
-        <Countdown
-          timer={sampleTimer(now, strings.message)}
-          now={now}
-          strings={strings}
-          locale={locale}
-        />
+        <Countdown timer={sampleTimer(now, strings.message)} now={now} strings={strings} />
         {designMode && !visualPreview && (
           <p class="hx-notice">
             {status === "unavailable" ? strings.editorUnavailable : strings.editorEmpty}

@@ -9,7 +9,7 @@ export class ApiError extends Error {
    * @param {{ code?: string, message?: string, fields?: Record<string, string>, requestId?: string }} [details]
    */
   constructor(status, details = {}) {
-    super(details.message || "Something went wrong. Try again.");
+    super(details.message || "Something went wrong. Please try again.");
     this.name = "ApiError";
     this.status = status;
     this.code = details.code ?? "UNKNOWN_ERROR";
@@ -31,7 +31,7 @@ async function request(path, { method = "GET", body, signal } = {}) {
     if (error?.name === "AbortError") throw error;
     throw new ApiError(0, {
       code: "NETWORK_ERROR",
-      message: "We couldn't reach the server. Check your connection and try again.",
+      message: "Couldn’t reach the server. Check your connection and try again.",
     });
   }
 

@@ -30,14 +30,16 @@ describe("TimerFormModal", () => {
   it("renders an empty create form", () => {
     const { modal, field, primaryAction } = renderModal();
 
-    expect(modal).toHaveAttribute("heading", "Create new timer");
+    expect(modal).toHaveAttribute("heading", "Create countdown timer");
     expect(field("name")).toHaveAttribute("label", "Timer name");
     expect(field("name")).toHaveAttribute("required");
     expect(field("name")).toHaveAttribute("value", "");
     expect(primaryAction()).toHaveTextContent("Create timer");
-    expect(screen.getByText(/Times are in your store’s time zone/)).toHaveTextContent(
-      "America/New_York",
-    );
+    expect(
+      screen.getByText(
+        "Times are in your store’s time zone. Leave the start blank to start right away.",
+      ),
+    ).toBeInTheDocument();
   });
 
   it("shows field errors instead of submitting an invalid form", async () => {
@@ -87,6 +89,7 @@ describe("TimerFormModal", () => {
     expect(url).toBe("/api/timers");
     expect(init.method).toBe("POST");
     expect(JSON.parse(init.body)).toEqual({
+      type: "countdown",
       name: "Black Friday Sale",
       description: "",
       startDate: null,
@@ -212,7 +215,7 @@ describe("TimerFormModal", () => {
     const fetchMock = mockFetch(() => [200, { timer }]);
     const { modal, field, primaryAction } = renderModal({ timer });
 
-    expect(modal).toHaveAttribute("heading", "Edit timer");
+    expect(modal).toHaveAttribute("heading", "Edit countdown timer");
     expect(field("name")).toHaveAttribute("value", "Summer sale");
     expect(field("startTime")).toHaveAttribute("value", "9:00 AM");
     expect(primaryAction()).toHaveTextContent("Save");
@@ -231,5 +234,172 @@ describe("TimerFormModal", () => {
       urgency: "shake",
     });
     expect(JSON.parse(init.body)).not.toHaveProperty("position");
+  });
+
+  describe("evergreen timers", () => {
+    const renderEvergreen = (props = {}) => renderModal({ type: "evergreen", ...props });
+
+    it("asks for a duration instead of a schedule", () => {
+      const { modal, field } = renderEvergreen();
+
+      expect(modal).toHaveAttribute("heading", "Create evergreen timer");
+      expect(field("startDate")).toBeNull();
+      expect(field("endDate")).toBeNull();
+      expect(field("durationDays")).toHaveAttribute("label", "Days");
+      expect(field("durationHours")).toHaveAttribute("label", "Hours");
+      expect(field("durationMinutes")).toHaveAttribute("label", "Minutes");
+      expect(field("durationMinutes")).toHaveAttribute("inputMode", "numeric");
+      expect(
+        screen.getByText("Each visitor’s timer runs for this long after their first visit."),
+      ).toBeInTheDocument();
+      expect(screen.queryByText(/time zone/)).toBeNull();
+    });
+
+    it("requires a duration", async () => {
+      const fetchMock = mockFetch(() => [201, {}]);
+      const { modal, field, primaryAction } = renderEvergreen();
+
+      await act(async () => setFieldValue(field("name"), "Welcome offer"));
+      await act(async () => primaryAction().click());
+
+      expect(field("duration")).toHaveTextContent("Enter a duration.");
+      expect(modal.querySelector("s-banner")).toHaveAttribute(
+        "heading",
+        "Fix 1 error to save this timer",
+      );
+      expect(fetchMock).not.toHaveBeenCalled();
+    });
+
+    it("flags a unit that isn't a whole number on its own field", async () => {
+      const { field, primaryAction } = renderEvergreen();
+
+      await act(async () => {
+        setFieldValue(field("name"), "Welcome offer");
+        setFieldValue(field("durationHours"), "1.5");
+      });
+      await act(async () => primaryAction().click());
+
+      expect(field("durationHours")).toHaveAttribute("error", "Enter a whole number.");
+    });
+
+    it("creates an evergreen timer with the duration in minutes", async () => {
+      const fetchMock = mockFetch(() => [201, { timer: { id: "e1" } }]);
+      const { field, primaryAction, onClose } = renderEvergreen();
+
+      await act(async () => {
+        setFieldValue(field("name"), "Welcome offer");
+        setFieldValue(field("durationHours"), "2");
+        setFieldValue(field("durationMinutes"), "15");
+      });
+      await act(async () => primaryAction().click());
+
+      await waitFor(() => expect(onClose).toHaveBeenCalled());
+      const [url, init] = fetchMock.mock.calls[0];
+      expect(url).toBe("/api/timers");
+      expect(JSON.parse(init.body)).toEqual({
+        type: "evergreen",
+        name: "Welcome offer",
+        description: "",
+        durationMinutes: 135,
+        color: "#008060",
+        size: "medium",
+        urgency: "color_pulse",
+        target: { type: "all", resourceIds: [] },
+      });
+    });
+
+    it("shows a server error about the duration under the duration fields", async () => {
+      mockFetch(() => [
+        422,
+        {
+          error: {
+            code: "VALIDATION_FAILED",
+            message: "Some fields need your attention.",
+            fields: { durationMinutes: "Duration can’t be longer than 365 days." },
+          },
+        },
+      ]);
+      const { field, primaryAction } = renderEvergreen();
+
+      await act(async () => {
+        setFieldValue(field("name"), "Welcome offer");
+        setFieldValue(field("durationDays"), "2");
+      });
+      await act(async () => primaryAction().click());
+
+      await waitFor(() =>
+        expect(field("duration")).toHaveTextContent("Duration can’t be longer than 365 days."),
+      );
+      await act(async () => setFieldValue(field("durationDays"), "1"));
+      expect(field("duration")).not.toHaveTextContent("Duration can’t be longer than 365 days.");
+    });
+
+    it("lists server errors that no field can show in the banner", async () => {
+      mockFetch(() => [
+        422,
+        {
+          error: {
+            code: "VALIDATION_FAILED",
+            message: "Some fields need your attention.",
+            fields: { type: "A timer’s type can’t be changed." },
+          },
+        },
+      ]);
+      const { modal, field, primaryAction } = renderEvergreen();
+
+      await act(async () => {
+        setFieldValue(field("name"), "Welcome offer");
+        setFieldValue(field("durationDays"), "1");
+      });
+      await act(async () => primaryAction().click());
+
+      await waitFor(() =>
+        expect(modal.querySelector("s-banner")).toHaveTextContent(
+          "A timer’s type can’t be changed.",
+        ),
+      );
+    });
+
+    it("previews the full duration counting down", async () => {
+      const { container, field } = renderEvergreen();
+      await act(async () => setFieldValue(field("durationMinutes"), "45"));
+
+      // The digits on screen, leaving out the ones rolling away.
+      const values = [...container.querySelectorAll(".timer-preview__value")].map((value) =>
+        [...value.querySelectorAll(".timer-preview__glyph:not(.timer-preview__glyph--out)")]
+          .map((glyph) => glyph.textContent)
+          .join(""),
+      );
+      expect(values).toEqual(["00", "00", "45", "00"]);
+    });
+
+    it("edits an evergreen timer with PUT", async () => {
+      const timer = {
+        id: "e9",
+        type: "evergreen",
+        name: "Welcome offer",
+        description: "",
+        durationMinutes: 60,
+        color: "#008060",
+        size: "medium",
+        urgency: "none",
+        target: { type: "all", resources: [] },
+      };
+      const fetchMock = mockFetch(() => [200, { timer }]);
+      // The page's type doesn't matter: an edited timer keeps its own.
+      const { modal, field, primaryAction } = renderModal({ timer });
+
+      expect(modal).toHaveAttribute("heading", "Edit evergreen timer");
+      expect(field("durationHours")).toHaveAttribute("value", "1");
+
+      await act(async () => setFieldValue(field("durationMinutes"), "30"));
+      await act(async () => primaryAction().click());
+
+      await waitFor(() => expect(fetchMock).toHaveBeenCalled());
+      const [url, init] = fetchMock.mock.calls[0];
+      expect(url).toBe("/api/timers/e9");
+      expect(init.method).toBe("PUT");
+      expect(JSON.parse(init.body)).toMatchObject({ type: "evergreen", durationMinutes: 90 });
+    });
   });
 });

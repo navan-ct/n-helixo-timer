@@ -135,18 +135,6 @@ export function formatInstant(iso, { locale, timeZone }) {
   }).format(new Date(iso));
 }
 
-/** Returns a short, readable time zone label, e.g. "Eastern Standard Time". */
-export function describeTimeZone(timeZone, locale, now = new Date()) {
-  try {
-    const name = new Intl.DateTimeFormat(locale, { timeZone, timeZoneName: "long" })
-      .formatToParts(now)
-      .find((part) => part.type === "timeZoneName")?.value;
-    return name ? `${name} (${timeZone})` : timeZone;
-  } catch {
-    return timeZone;
-  }
-}
-
 /**
  * Splits a duration into whole days, hours, minutes and seconds.
  * @param {number} milliseconds
@@ -159,4 +147,50 @@ export function splitDuration(milliseconds) {
     minutes: Math.floor((total % 3_600) / 60),
     seconds: total % 60,
   };
+}
+
+const MINUTES_PER_DAY = 24 * 60;
+
+/**
+ * Splits a whole number of minutes into days, hours and minutes.
+ * @param {number} totalMinutes
+ */
+export function splitMinutes(totalMinutes) {
+  const total = Math.max(0, Math.floor(totalMinutes));
+  return {
+    days: Math.floor(total / MINUTES_PER_DAY),
+    hours: Math.floor((total % MINUTES_PER_DAY) / 60),
+    minutes: total % 60,
+  };
+}
+
+/**
+ * Formats a duration in minutes for the merchant's locale, leaving out empty
+ * units, e.g. "1 day, 12 hours" or "1 hour, 30 minutes".
+ */
+export function formatDuration(totalMinutes, locale) {
+  const parts = splitMinutes(totalMinutes);
+  const units = [
+    ["days", "day"],
+    ["hours", "hour"],
+    ["minutes", "minute"],
+  ]
+    .filter(([key]) => parts[key] > 0)
+    .map(([key, unit]) => formatUnit(parts[key], unit, locale));
+  if (units.length === 0) units.push(formatUnit(0, "minute", locale));
+  try {
+    return new Intl.ListFormat(locale, { style: "long", type: "unit" }).format(units);
+  } catch {
+    return units.join(", ");
+  }
+}
+
+function formatUnit(value, unit, locale) {
+  try {
+    return new Intl.NumberFormat(locale, { style: "unit", unit, unitDisplay: "long" }).format(
+      value,
+    );
+  } catch {
+    return `${value} ${unit}${value === 1 ? "" : "s"}`;
+  }
 }

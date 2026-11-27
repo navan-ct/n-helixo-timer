@@ -172,15 +172,47 @@ export function timerPayload(overrides = {}) {
   };
 }
 
-/** Inserts a timer directly, bypassing the API. */
+/** A valid evergreen create/update payload; override fields per test. */
+export function evergreenPayload(overrides = {}) {
+  return {
+    type: "evergreen",
+    name: "Welcome offer",
+    description: "10% off your first order",
+    durationMinutes: 90,
+    color: "#008060",
+    size: "medium",
+    urgency: "color_pulse",
+    target: { type: "all", resourceIds: [] },
+    ...overrides,
+  };
+}
+
+/** Inserts a countdown timer directly, bypassing the API. */
 export function insertTimer(fields = {}) {
   return Timer.create({
     shop: SHOP,
+    type: "countdown",
     name: "Seeded timer",
     description: "",
     startsAt: new Date("2026-11-20T00:00:00Z"),
     endsAt: new Date("2026-12-20T00:00:00Z"),
     timezone: SHOP_TIMEZONE,
+    color: "#008060",
+    size: "medium",
+    urgency: "none",
+    target: { type: "all", resources: [] },
+    ...fields,
+  });
+}
+
+/** Inserts an evergreen timer directly, bypassing the API. */
+export function insertEvergreenTimer(fields = {}) {
+  return Timer.create({
+    shop: SHOP,
+    type: "evergreen",
+    name: "Seeded evergreen timer",
+    description: "",
+    durationMinutes: 60,
     color: "#008060",
     size: "medium",
     urgency: "none",

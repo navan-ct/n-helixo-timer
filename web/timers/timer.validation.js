@@ -10,7 +10,9 @@ import {
   TIMER_LIMITS,
   TIMER_SIZES,
   TIMER_SORTS,
+  TIMER_SORTS_BY_TYPE,
   TIMER_STATUSES,
+  TIMER_TYPES,
   URGENCY_EFFECTS,
 } from "./timer.constants.js";
 
@@ -79,7 +81,7 @@ const optionalTime = z.preprocess(emptyToNull, timeField("Enter a time.").nullab
 
 const targetSchema = z
   .object({
-    type: z.enum(TARGET_TYPES, { error: "Choose where the timer appears." }),
+    type: z.enum(TARGET_TYPES, { error: "Select where the timer appears." }),
     resourceIds: z
       .array(z.string({ error: "Resource IDs must be strings." }), {
         error: "Resource IDs must be a list.",
@@ -96,7 +98,7 @@ const targetSchema = z
         ctx.addIssue({
           code: "custom",
           path: ["resourceIds"],
-          message: "Don't select specific items when the timer applies to all products.",
+          message: "Don’t select items when the timer applies to all products.",
         });
       }
       return;
@@ -129,43 +131,50 @@ const targetSchema = z
     resourceIds: [...new Set(target.resourceIds)],
   }));
 
-/**
- * Body schema for creating or replacing a timer. Dates and times are wall-clock
- * values in the shop's time zone; the service converts them to UTC instants.
- */
-export const timerInputSchema = z
-  .object({
-    name: z
-      .string({ error: "Enter a timer name." })
-      .transform((value) => sanitizeText(value))
-      .pipe(
-        z
-          .string()
-          .min(1, { error: "Enter a timer name." })
-          .max(TIMER_LIMITS.NAME_MAX_LENGTH, {
-            error: `Use ${TIMER_LIMITS.NAME_MAX_LENGTH} characters or fewer.`,
-          }),
-      ),
-    description: z
-      .string({ error: "Description must be text." })
-      .default("")
-      .transform((value) => sanitizeText(value, { multiline: true }))
-      .pipe(
-        z.string().max(TIMER_LIMITS.DESCRIPTION_MAX_LENGTH, {
-          error: `Use ${TIMER_LIMITS.DESCRIPTION_MAX_LENGTH} characters or fewer.`,
+/** Fields every timer has, whatever its type. */
+const sharedTimerFields = {
+  name: z
+    .string({ error: "Enter a timer name." })
+    .transform((value) => sanitizeText(value))
+    .pipe(
+      z
+        .string()
+        .min(1, { error: "Enter a timer name." })
+        .max(TIMER_LIMITS.NAME_MAX_LENGTH, {
+          error: `Name can’t be longer than ${TIMER_LIMITS.NAME_MAX_LENGTH} characters.`,
         }),
-      ),
-    startDate: optionalDate.optional(),
-    startTime: optionalTime.optional(),
+    ),
+  description: z
+    .string({ error: "Description must be text." })
+    .default("")
+    .transform((value) => sanitizeText(value, { multiline: true }))
+    .pipe(
+      z.string().max(TIMER_LIMITS.DESCRIPTION_MAX_LENGTH, {
+        error: `Description can’t be longer than ${TIMER_LIMITS.DESCRIPTION_MAX_LENGTH} characters.`,
+      }),
+    ),
+  color: z
+    .string({ error: "Select a timer color." })
+    .regex(HEX_COLOR, { error: "Enter a valid hex color." })
+    .transform((value) => value.toLowerCase()),
+  size: z.enum(TIMER_SIZES, { error: "Select a timer size." }),
+  urgency: z.enum(URGENCY_EFFECTS, { error: "Select an urgency notification." }),
+  target: targetSchema,
+};
+
+/**
+ * A countdown runs on one schedule for every shopper. Dates and times are
+ * wall-clock values in the shop's time zone; the service converts them to UTC
+ * instants. `type` may be left out, since countdowns came first.
+ */
+const countdownInputSchema = z
+  .object({
+    type: z.literal("countdown").default("countdown"),
+    ...sharedTimerFields,
+    startDate: optionalDate.default(null),
+    startTime: optionalTime.default(null),
     endDate: dateField("Enter an end date."),
     endTime: timeField("Enter an end time."),
-    color: z
-      .string({ error: "Choose a timer color." })
-      .regex(HEX_COLOR, { error: "Enter a hex color such as #008060." })
-      .transform((value) => value.toLowerCase()),
-    size: z.enum(TIMER_SIZES, { error: "Choose a timer size." }),
-    urgency: z.enum(URGENCY_EFFECTS, { error: "Choose an urgency notification." }),
-    target: targetSchema,
   })
   .strict()
   .superRefine((input, ctx) => {
@@ -175,20 +184,45 @@ export const timerInputSchema = z
     if (input.startTime && !input.startDate) {
       ctx.addIssue({ code: "custom", path: ["startDate"], message: "Enter a start date." });
     }
+  });
+
+const MAX_DURATION_DAYS = TIMER_LIMITS.DURATION_MAX_MINUTES / (24 * 60);
+
+/**
+ * An evergreen timer runs for `durationMinutes` from each shopper's first visit,
+ * so it has no schedule.
+ */
+const evergreenInputSchema = z
+  .object({
+    type: z.literal("evergreen"),
+    ...sharedTimerFields,
+    durationMinutes: z
+      .number({ error: "Enter a duration." })
+      .int({ error: "Duration must be in whole minutes." })
+      .min(TIMER_LIMITS.DURATION_MIN_MINUTES, { error: "Duration must be at least 1 minute." })
+      .max(TIMER_LIMITS.DURATION_MAX_MINUTES, {
+        error: `Duration can’t be longer than ${MAX_DURATION_DAYS} days.`,
+      }),
   })
-  .transform(({ startDate, startTime, ...rest }) => ({
-    ...rest,
-    startDate: startDate ?? null,
-    startTime: startTime ?? null,
-  }));
+  .strict();
+
+/** Body schema for creating or replacing a timer of either type. */
+export const timerInputSchema = z.discriminatedUnion(
+  "type",
+  [countdownInputSchema, evergreenInputSchema],
+  {
+    error: (issue) => (issue.code === "invalid_union" ? "Select a timer type." : undefined),
+  },
+);
 
 export const listQuerySchema = z
   .object({
+    type: z.enum(TIMER_TYPES, { error: "Unknown timer type." }).default("countdown"),
     query: z
       .string({ error: "Search must be text." })
       .trim()
       .max(TIMER_LIMITS.SEARCH_MAX_LENGTH, {
-        error: `Use ${TIMER_LIMITS.SEARCH_MAX_LENGTH} characters or fewer.`,
+        error: `Search can’t be longer than ${TIMER_LIMITS.SEARCH_MAX_LENGTH} characters.`,
       })
       .default(""),
     status: z.enum(["all", ...TIMER_STATUSES], { error: "Unknown status filter." }).default("all"),
@@ -200,7 +234,12 @@ export const listQuerySchema = z
       .max(10_000, { error: "Page is out of range." })
       .default(1),
   })
-  .strict();
+  .strict()
+  .superRefine((query, ctx) => {
+    if (!TIMER_SORTS_BY_TYPE[query.type].includes(query.sort)) {
+      ctx.addIssue({ code: "custom", path: ["sort"], message: "Unknown sort order." });
+    }
+  });
 
 export function isObjectId(value) {
   return typeof value === "string" && OBJECT_ID.test(value);

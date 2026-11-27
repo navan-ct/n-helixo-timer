@@ -2,7 +2,7 @@ import mongoose from "mongoose";
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { silentLogger } from "../lib/logger.js";
-import { insertTimer, startDatabase } from "../test/helpers.js";
+import { insertEvergreenTimer, insertTimer, startDatabase } from "../test/helpers.js";
 import { Timer } from "../timers/timer.model.js";
 
 import { MIGRATIONS, runMigrations } from "./migrations.js";
@@ -32,6 +32,17 @@ describe("runMigrations", () => {
     const stored = await Timer.collection.findOne({ _id: timer._id });
     expect(stored).not.toHaveProperty("position");
     expect(stored.name).toBe("Seeded timer");
+  });
+
+  it("marks timers stored before timer types as countdowns", async () => {
+    const countdown = await insertTimer();
+    const evergreen = await insertEvergreenTimer();
+    await Timer.collection.updateOne({ _id: countdown._id }, { $unset: { type: "" } });
+
+    await runMigrations({ logger: silentLogger });
+
+    expect((await Timer.collection.findOne({ _id: countdown._id })).type).toBe("countdown");
+    expect((await Timer.collection.findOne({ _id: evergreen._id })).type).toBe("evergreen");
   });
 
   it("runs each migration once and records it", async () => {

@@ -7,24 +7,42 @@
 const HEX_COLOR = /^#[0-9a-f]{6}$/i;
 const SIZES = new Set(["small", "medium", "large"]);
 const URGENCY_EFFECTS = new Set(["color_pulse", "shake", "none"]);
-/** Timer kinds this build of the widget can render. Others are skipped. */
-const SUPPORTED_TYPES = new Set(["countdown"]);
+/** Evergreen durations the admin allows: 1 minute to 365 days. Keep in step with the server. */
+const MIN_DURATION_MINUTES = 1;
+const MAX_DURATION_MINUTES = 365 * 24 * 60;
 
 const MIN_REFRESH_SECONDS = 15;
 const MAX_REFRESH_SECONDS = 3_600;
 export const DEFAULT_REFRESH_SECONDS = 60;
 
 /**
+ * A timer as the storefront API sends it (and as the feed caches it). Timer
+ * kinds this build of the widget doesn't know are skipped.
+ *
+ * - `countdown`: runs from `startsAt` to `endsAt` for every shopper.
+ * - `evergreen`: runs for `durationMinutes` from this shopper's first visit;
+ *   `core/evergreen.js` works out when that is.
+ *
+ * `priority` is how specifically the timer targets the product (higher wins).
+ *
  * @typedef {{
  *   id: string,
- *   type: "countdown",
- *   startsAt: number,
- *   endsAt: number,
  *   message: string,
  *   color: string,
  *   size: "small" | "medium" | "large",
  *   urgency: "color_pulse" | "shake" | "none",
- * }} Timer
+ *   priority: number,
+ * } & (
+ *   { type: "countdown", startsAt: number, endsAt: number } |
+ *   { type: "evergreen", durationMinutes: number }
+ * )} FeedTimer
+ */
+
+/**
+ * A timer with its start and end known, ready to show. Evergreen timers carry
+ * this shopper's start and end.
+ *
+ * @typedef {FeedTimer & { startsAt: number, endsAt: number }} Timer
  */
 
 function toEpoch(value) {
@@ -32,36 +50,48 @@ function toEpoch(value) {
   return typeof value === "string" ? Date.parse(value) : NaN;
 }
 
-/** @returns {Timer | null} */
-export function parseTimer(raw) {
-  if (!raw || typeof raw !== "object") return null;
-  const startsAt = toEpoch(raw.startsAt);
-  const endsAt = toEpoch(raw.endsAt);
-  if (
-    typeof raw.id !== "string" ||
-    !SUPPORTED_TYPES.has(raw.type) ||
-    Number.isNaN(startsAt) ||
-    Number.isNaN(endsAt) ||
-    endsAt <= startsAt
-  ) {
-    return null;
+/** The when-it-runs part of a timer, or null if it's malformed or of an unknown type. */
+function parsePeriod(raw) {
+  if (raw.type === "countdown") {
+    const startsAt = toEpoch(raw.startsAt);
+    const endsAt = toEpoch(raw.endsAt);
+    if (Number.isNaN(startsAt) || Number.isNaN(endsAt) || endsAt <= startsAt) return null;
+    return { type: "countdown", startsAt, endsAt };
   }
+  if (raw.type === "evergreen") {
+    const minutes = raw.durationMinutes;
+    if (
+      !Number.isInteger(minutes) ||
+      minutes < MIN_DURATION_MINUTES ||
+      minutes > MAX_DURATION_MINUTES
+    ) {
+      return null;
+    }
+    return { type: "evergreen", durationMinutes: minutes };
+  }
+  return null;
+}
+
+/** @returns {FeedTimer | null} */
+export function parseTimer(raw) {
+  if (!raw || typeof raw !== "object" || typeof raw.id !== "string") return null;
+  const period = parsePeriod(raw);
+  if (!period) return null;
 
   return {
     id: raw.id,
-    type: raw.type,
-    startsAt,
-    endsAt,
+    ...period,
     message: typeof raw.message === "string" ? raw.message : "",
     color: HEX_COLOR.test(raw.color) ? raw.color : "#008060",
     size: SIZES.has(raw.size) ? raw.size : "medium",
     urgency: URGENCY_EFFECTS.has(raw.urgency) ? raw.urgency : "none",
+    priority: Number.isInteger(raw.priority) && raw.priority >= 0 ? raw.priority : 0,
   };
 }
 
 /**
  * Parses a storefront API response.
- * @returns {{ timers: Timer[], serverTime: number, refreshInterval: number } | null}
+ * @returns {{ timers: FeedTimer[], serverTime: number, refreshInterval: number } | null}
  */
 export function parseTimersResponse(body) {
   if (!body || !Array.isArray(body.timers)) return null;
@@ -76,8 +106,27 @@ export function parseTimersResponse(body) {
 }
 
 /**
- * The timer to show at `now`: the first running one. The API sends timers in
- * priority order (most specific targeting first, then soonest to end).
+ * Puts timers in the order they take the block: most specific targeting first,
+ * then the one ending soonest. The API sends them in this order already, but
+ * only the browser knows when its evergreen timers end. The sort is stable, so
+ * the API's order breaks ties.
+ *
+ * @param {Timer[]} timers
+ * @returns {Timer[]}
+ */
+export function orderTimers(timers) {
+  return timers
+    .map((timer, index) => ({ timer, index }))
+    .sort(
+      (a, b) =>
+        b.timer.priority - a.timer.priority || a.timer.endsAt - b.timer.endsAt || a.index - b.index,
+    )
+    .map(({ timer }) => timer);
+}
+
+/**
+ * The timer to show at `now`: the first running one, from timers in the order
+ * `orderTimers` puts them.
  *
  * @param {Timer[]} timers
  * @param {number} now

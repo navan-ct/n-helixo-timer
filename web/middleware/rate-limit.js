@@ -23,7 +23,7 @@ function storefrontClient(req, res) {
 function rateLimited(windowMs) {
   return (_req, _res, next) => {
     next(
-      new HttpError(429, "RATE_LIMITED", "Too many requests. Wait a moment and try again.", {
+      new HttpError(429, "RATE_LIMITED", "Too many requests. Please try again in a moment.", {
         headers: { "Retry-After": String(Math.ceil(windowMs / 1000)) },
       }),
     );

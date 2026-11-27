@@ -136,7 +136,7 @@ export function createShopifyAdminApi({
         throw new ValidationError({
           "target.resourceIds":
             missing.length === 1
-              ? "One of the selected items no longer exists. Remove it and try again."
+              ? "A selected item no longer exists. Remove it and try again."
               : `${missing.length} selected items no longer exist. Remove them and try again.`,
         });
       }

@@ -70,7 +70,7 @@ describe("createShopifyAdminApi", () => {
       ])
       .catch((e) => e);
     expect(error).toBeInstanceOf(ValidationError);
-    expect(error.fields["target.resourceIds"]).toMatch(/One of the selected items/);
+    expect(error.fields["target.resourceIds"]).toMatch(/A selected item no longer exists/);
   });
 
   it("skips the API call when there's nothing to resolve", async () => {

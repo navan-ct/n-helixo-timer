@@ -12,7 +12,7 @@ export function toHttpError(error) {
   // body-parser / raw-body
   switch (error?.type) {
     case "entity.parse.failed":
-      return new HttpError(400, "INVALID_JSON", "The request body isn't valid JSON.");
+      return new HttpError(400, "INVALID_JSON", "The request body isn’t valid JSON.");
     case "entity.too.large":
       return new HttpError(413, "PAYLOAD_TOO_LARGE", "The request body is too large.");
     case "encoding.unsupported":
@@ -26,7 +26,7 @@ export function toHttpError(error) {
 
   // Malformed percent-encoding in the URL.
   if (error instanceof URIError) {
-    return new HttpError(400, "MALFORMED_URL", "The request URL is malformed.");
+    return new HttpError(400, "MALFORMED_URL", "The request URL isn’t valid.");
   }
 
   if (error instanceof mongoose.Error.VersionError) {
@@ -42,7 +42,7 @@ export function toHttpError(error) {
 
 /** 404 for unknown API routes, in the API's JSON error format. */
 export function apiNotFound(_req, _res, next) {
-  next(new HttpError(404, "ROUTE_NOT_FOUND", "This API route doesn't exist."));
+  next(new HttpError(404, "ROUTE_NOT_FOUND", "This API route doesn’t exist."));
 }
 
 /**
@@ -69,7 +69,7 @@ export function apiErrorHandler(error, req, res, next) {
   res.status(status).json({
     error: {
       code: known?.code ?? "INTERNAL_ERROR",
-      message: known?.message ?? "Something went wrong on our end. Try again in a moment.",
+      message: known?.message ?? "Something went wrong. Please try again.",
       ...(known?.fields ? { fields: known.fields } : {}),
       requestId: req.id,
     },

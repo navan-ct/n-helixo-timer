@@ -1,6 +1,12 @@
 import mongoose from "mongoose";
 
-import { TARGET_TYPES, TIMER_LIMITS, TIMER_SIZES, URGENCY_EFFECTS } from "./timer.constants.js";
+import {
+  TARGET_TYPES,
+  TIMER_LIMITS,
+  TIMER_SIZES,
+  TIMER_TYPES,
+  URGENCY_EFFECTS,
+} from "./timer.constants.js";
 
 const { Schema } = mongoose;
 
@@ -25,14 +31,32 @@ const targetSchema = new Schema(
   { _id: false },
 );
 
+function isCountdown() {
+  return this.type === "countdown";
+}
+
+function isEvergreen() {
+  return this.type === "evergreen";
+}
+
 const timerSchema = new Schema(
   {
     shop: { type: String, required: true, immutable: true },
+    type: { type: String, enum: TIMER_TYPES, required: true, immutable: true },
     name: { type: String, required: true, maxlength: TIMER_LIMITS.NAME_MAX_LENGTH },
     description: { type: String, default: "", maxlength: TIMER_LIMITS.DESCRIPTION_MAX_LENGTH },
-    startsAt: { type: Date, required: true },
-    endsAt: { type: Date, required: true },
-    timezone: { type: String, required: true },
+    // Countdown timers: one schedule for every shopper.
+    startsAt: { type: Date, required: isCountdown },
+    endsAt: { type: Date, required: isCountdown },
+    timezone: { type: String, required: isCountdown },
+    // Evergreen timers: how long each shopper's countdown runs from their first visit.
+    durationMinutes: {
+      type: Number,
+      required: isEvergreen,
+      min: TIMER_LIMITS.DURATION_MIN_MINUTES,
+      max: TIMER_LIMITS.DURATION_MAX_MINUTES,
+      validate: { validator: Number.isInteger, message: "durationMinutes must be an integer" },
+    },
     color: { type: String, required: true, match: /^#[0-9a-f]{6}$/ },
     size: { type: String, enum: TIMER_SIZES, required: true },
     urgency: { type: String, enum: URGENCY_EFFECTS, required: true },
@@ -49,8 +73,9 @@ const timerSchema = new Schema(
   },
 );
 
-// Every query is scoped to a shop, so each index leads with `shop`.
-timerSchema.index({ shop: 1, createdAt: -1 });
+// Every query is scoped to a shop, so each index leads with `shop`. Lists show
+// one type at a time, most recently created first by default.
+timerSchema.index({ shop: 1, type: 1, createdAt: -1 });
 timerSchema.index({ shop: 1, startsAt: 1 });
 timerSchema.index({ shop: 1, endsAt: 1 });
 timerSchema.index({ shop: 1, name: 1 }, { collation: NAME_COLLATION });

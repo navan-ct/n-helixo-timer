@@ -20,6 +20,16 @@ export const MIGRATIONS = [
       return { modifiedCount };
     },
   },
+  {
+    id: "2026-11-27-add-timer-type",
+    description: "Timers have a type (countdown or evergreen); every earlier timer is a countdown.",
+    async up(db) {
+      const { modifiedCount } = await db
+        .collection("timers")
+        .updateMany({ type: { $exists: false } }, { $set: { type: "countdown" } });
+      return { modifiedCount };
+    },
+  },
 ];
 
 const DUPLICATE_KEY = 11000;

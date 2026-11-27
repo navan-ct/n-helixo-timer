@@ -1,6 +1,12 @@
-import { setOffset } from "./clock.js";
+import { now as clockNow, setOffset } from "./clock.js";
+import { resolveEvergreenTimers } from "./evergreen.js";
 import { readJson, writeJson } from "./storage.js";
-import { DEFAULT_REFRESH_SECONDS, parseTimer, parseTimersResponse } from "./timer-data.js";
+import {
+  DEFAULT_REFRESH_SECONDS,
+  orderTimers,
+  parseTimer,
+  parseTimersResponse,
+} from "./timer-data.js";
 
 /**
  * Keeps the timers for one product up to date, as cheaply as possible.
@@ -16,6 +22,9 @@ import { DEFAULT_REFRESH_SECONDS, parseTimer, parseTimersResponse } from "./time
  *   back online. Known timers keep counting down throughout, since the
  *   countdown only needs their end time.
  * - Sharing: every widget for the same product on a page shares one feed.
+ * - Evergreen timers: each one gets this shopper's start and end
+ *   (core/evergreen.js) before it's reported, so listeners only ever see
+ *   timers with a start and an end, in the order they take the block.
  *
  * Feed states:
  * - `loading`: nothing to show yet (first request in flight, nothing cached)
@@ -23,7 +32,8 @@ import { DEFAULT_REFRESH_SECONDS, parseTimer, parseTimersResponse } from "./time
  * - `unavailable`: the request failed and nothing is cached
  */
 
-const CACHE_VERSION = 1;
+// 2: timers carry a type-specific period and a priority (evergreen timers).
+const CACHE_VERSION = 2;
 const CACHE_PREFIX = "helixo-timer:";
 /** Cached data older than this isn't shown, even while offline. */
 const MAX_CACHE_AGE_MS = 24 * 60 * 60_000;
@@ -80,6 +90,12 @@ function createFeed({ endpoint, shop, productId, collectionIds, useCache, fetch 
     for (const listener of listeners) listener(state);
   }
 
+  /** Reports timers from the API or the cache, with evergreen timers resolved for this shopper. */
+  function emitTimers(timers) {
+    const resolved = resolveEvergreenTimers(timers, { shop, now: clockNow(), persist: useCache });
+    emit({ status: "ready", timers: orderTimers(resolved) });
+  }
+
   const isStale = () => Date.now() - fetchedAt >= refreshMs;
 
   /** Takes newer data from the cache, written by an earlier page view or another tab. */
@@ -100,7 +116,7 @@ function createFeed({ endpoint, shop, productId, collectionIds, useCache, fetch 
     fetchedAt = entry.savedAt;
     if (Number.isFinite(entry.refreshMs)) refreshMs = entry.refreshMs;
     setOffset(entry.offset);
-    emit({ status: "ready", timers: entry.timers.map(parseTimer).filter(Boolean) });
+    emitTimers(entry.timers.map(parseTimer).filter(Boolean));
     return true;
   }
 
@@ -170,7 +186,7 @@ function createFeed({ endpoint, shop, productId, collectionIds, useCache, fetch 
         });
       }
       if (running) {
-        emit({ status: "ready", timers: data.timers });
+        emitTimers(data.timers);
         scheduleRefresh(jitter(refreshMs, 0.1));
       }
     } catch (error) {

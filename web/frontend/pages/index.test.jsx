@@ -23,9 +23,14 @@ describe("HomePage", () => {
     });
   });
 
-  it("links to the countdown timers page", () => {
+  it("links to the countdown and evergreen timer pages", () => {
     renderWithProviders(<HomePage />);
-    expect(screen.getByText("Create countdown timer")).toHaveAttribute("href", "/countdown-timers");
+    const countdown = screen.getByText("Create countdown timer");
+    const evergreen = screen.getByText("Create evergreen timer");
+    expect(countdown).toHaveAttribute("href", "/countdown-timers");
+    expect(evergreen).toHaveAttribute("href", "/evergreen-timers");
+    expect(countdown).toHaveAttribute("variant", "secondary");
+    expect(evergreen).toHaveAttribute("variant", "secondary");
   });
 
   it("encodes the block ID in the deep link", () => {

@@ -85,10 +85,10 @@ describe("resolveSchedule", () => {
 
   it("requires the end to be after the start", () => {
     expect(scheduleError({ ...input, endDate: "2026-11-28" })).toEqual({
-      endDate: "End must be after the start date and time.",
+      endDate: "End must be after the start.",
     });
     expect(scheduleError({ ...input, endDate: "2026-11-29", endTime: "00:00" })).toEqual({
-      endTime: "End must be after the start date and time.",
+      endTime: "End must be after the start.",
     });
   });
 

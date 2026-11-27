@@ -6,6 +6,8 @@ import {
   SHOP,
   buildTestApp,
   createFakeGraphqlClient,
+  evergreenPayload,
+  insertEvergreenTimer,
   insertTimer,
   startDatabase,
   timerPayload,
@@ -148,7 +150,7 @@ describe("POST /api/timers", () => {
     const response = await createTimer(timerPayload({ endDate: "2026-11-28" }));
     expect(response.status).toBe(422);
     expect(response.body.error.fields).toEqual({
-      endDate: "End must be after the start date and time.",
+      endDate: "End must be after the start.",
     });
   });
 
@@ -187,6 +189,7 @@ describe("POST /api/timers", () => {
     await Timer.insertMany(
       Array.from({ length: TIMER_LIMITS.MAX_TIMERS_PER_SHOP }, (_, i) => ({
         shop: SHOP,
+        type: "countdown",
         name: `Timer ${i}`,
         startsAt: new Date("2026-11-20T00:00:00Z"),
         endsAt: new Date("2026-12-20T00:00:00Z"),
@@ -297,6 +300,7 @@ describe("GET /api/timers", () => {
     await Timer.insertMany(
       Array.from({ length: TIMER_LIMITS.PAGE_SIZE }, (_, i) => ({
         shop: SHOP,
+        type: "countdown",
         name: `Bulk ${i}`,
         startsAt: new Date("2026-11-20T00:00:00Z"),
         endsAt: new Date("2026-12-20T00:00:00Z"),
@@ -418,6 +422,171 @@ describe("DELETE /api/timers/:id", () => {
   });
 });
 
+describe("evergreen timers", () => {
+  const list = (query = {}) =>
+    request(app).get("/api/timers").query(query).set("x-test-shop", SHOP);
+
+  it("creates an evergreen timer with a duration and no schedule", async () => {
+    const graphql = createFakeGraphqlClient();
+    const requestSpy = vi.spyOn(graphql, "request");
+    ({ app } = buildTestApp({ graphql }));
+
+    const response = await createTimer(evergreenPayload());
+
+    expect(response.status).toBe(201);
+    expect(response.body.timer).toEqual({
+      id: expect.any(String),
+      type: "evergreen",
+      name: "Welcome offer",
+      description: "10% off your first order",
+      durationMinutes: 90,
+      color: "#008060",
+      size: "medium",
+      urgency: "color_pulse",
+      target: { type: "all", resources: [] },
+      status: "active",
+      createdAt: expect.any(String),
+      updatedAt: expect.any(String),
+    });
+    // The shop's time zone only matters for schedules.
+    expect(requestSpy).not.toHaveBeenCalled();
+
+    const stored = await Timer.findById(response.body.timer.id).lean();
+    expect(stored).toMatchObject({ shop: SHOP, type: "evergreen", durationMinutes: 90 });
+    expect(stored).not.toHaveProperty("startsAt");
+    expect(stored).not.toHaveProperty("timezone");
+  });
+
+  it("targets products like countdown timers", async () => {
+    const response = await createTimer(
+      evergreenPayload({
+        target: { type: "products", resourceIds: ["gid://shopify/Product/1001"] },
+      }),
+    );
+    expect(response.status).toBe(201);
+    expect(response.body.timer.target.resources[0]).toMatchObject({ title: "Snowboard" });
+  });
+
+  it.each([
+    [{ durationMinutes: undefined }, "Enter a duration."],
+    [{ durationMinutes: "90" }, "Enter a duration."],
+    [{ durationMinutes: 0 }, "Duration must be at least 1 minute."],
+    [{ durationMinutes: 1.5 }, "Duration must be in whole minutes."],
+    [{ durationMinutes: 365 * 24 * 60 + 1 }, "Duration can’t be longer than 365 days."],
+  ])("validates the duration %o", async (overrides, message) => {
+    const response = await createTimer(evergreenPayload(overrides));
+    expect(response.status).toBe(422);
+    expect(response.body.error.fields).toEqual({ durationMinutes: message });
+  });
+
+  it("accepts durations from 1 minute to 365 days", async () => {
+    expect((await createTimer(evergreenPayload({ durationMinutes: 1 }))).status).toBe(201);
+    expect((await createTimer(evergreenPayload({ durationMinutes: 365 * 24 * 60 }))).status).toBe(
+      201,
+    );
+  });
+
+  it("rejects schedule fields and unknown types", async () => {
+    const withSchedule = await createTimer(evergreenPayload({ endDate: "2026-12-01" }));
+    expect(withSchedule.status).toBe(422);
+    expect(withSchedule.body.error.fields._root).toMatch(/Unknown field: endDate/);
+
+    const unknownType = await createTimer(evergreenPayload({ type: "flash" }));
+    expect(unknownType.status).toBe(422);
+    expect(unknownType.body.error.fields).toEqual({ type: "Select a timer type." });
+  });
+
+  it("lists one type at a time", async () => {
+    await insertTimer({ name: "Countdown" });
+    await insertEvergreenTimer({ name: "Evergreen" });
+    await insertEvergreenTimer({ shop: OTHER_SHOP, name: "Other shop's evergreen" });
+
+    const countdowns = await list();
+    expect(countdowns.body.timers.map((t) => t.name)).toEqual(["Countdown"]);
+    expect(countdowns.body.timezone).toBe("America/New_York");
+
+    const evergreens = await list({ type: "evergreen" });
+    expect(evergreens.status).toBe(200);
+    expect(evergreens.body.timers.map((t) => [t.name, t.type, t.status])).toEqual([
+      ["Evergreen", "evergreen", "active"],
+    ]);
+    expect(evergreens.body.pageInfo.total).toBe(1);
+    expect(evergreens.body).not.toHaveProperty("timezone");
+  });
+
+  it("sorts by duration and treats every evergreen timer as active", async () => {
+    await insertEvergreenTimer({ name: "Day", durationMinutes: 1_440 });
+    await insertEvergreenTimer({ name: "Quarter hour", durationMinutes: 15 });
+    await insertEvergreenTimer({ name: "Hour", durationMinutes: 60 });
+
+    const shortest = await list({ type: "evergreen", sort: "duration_asc" });
+    expect(shortest.body.timers.map((t) => t.name)).toEqual(["Quarter hour", "Hour", "Day"]);
+    const longest = await list({ type: "evergreen", sort: "duration_desc" });
+    expect(longest.body.timers.map((t) => t.name)).toEqual(["Day", "Hour", "Quarter hour"]);
+
+    expect((await list({ type: "evergreen", status: "active" })).body.timers).toHaveLength(3);
+    expect((await list({ type: "evergreen", status: "scheduled" })).body.timers).toHaveLength(0);
+    expect((await list({ type: "evergreen", status: "expired" })).body.timers).toHaveLength(0);
+  });
+
+  it("only offers the sorts that fit the type", async () => {
+    expect((await list({ type: "evergreen", sort: "end_asc" })).status).toBe(422);
+    expect((await list({ type: "countdown", sort: "duration_asc" })).status).toBe(422);
+    expect((await list({ type: "flash" })).status).toBe(422);
+  });
+
+  it("updates an evergreen timer", async () => {
+    const created = (await createTimer(evergreenPayload())).body.timer;
+    const response = await request(app)
+      .put(`/api/timers/${created.id}`)
+      .send(evergreenPayload({ name: "Last chance", durationMinutes: 15 }));
+
+    expect(response.status).toBe(200);
+    expect(response.body.timer).toMatchObject({
+      id: created.id,
+      type: "evergreen",
+      name: "Last chance",
+      durationMinutes: 15,
+    });
+  });
+
+  it("doesn't let a timer change type", async () => {
+    const countdown = await insertTimer();
+    const evergreen = await insertEvergreenTimer();
+
+    const toEvergreen = await request(app)
+      .put(`/api/timers/${countdown.id}`)
+      .send(evergreenPayload());
+    expect(toEvergreen.status).toBe(422);
+    expect(toEvergreen.body.error.fields).toEqual({ type: "A timer’s type can’t be changed." });
+
+    // A countdown payload may leave the type out; it still counts as a countdown.
+    const toCountdown = await request(app).put(`/api/timers/${evergreen.id}`).send(timerPayload());
+    expect(toCountdown.status).toBe(422);
+    expect((await Timer.findById(evergreen.id)).type).toBe("evergreen");
+  });
+
+  it("shares the per-shop limit with countdown timers", async () => {
+    await Timer.insertMany(
+      Array.from({ length: TIMER_LIMITS.MAX_TIMERS_PER_SHOP }, (_, i) => ({
+        shop: SHOP,
+        type: "countdown",
+        name: `Timer ${i}`,
+        startsAt: new Date("2026-11-20T00:00:00Z"),
+        endsAt: new Date("2026-12-20T00:00:00Z"),
+        timezone: "UTC",
+        color: "#000000",
+        size: "small",
+        urgency: "none",
+        target: { type: "all", resources: [] },
+      })),
+    );
+    const response = await createTimer(evergreenPayload());
+    expect(response.status).toBe(409);
+    expect(response.body.error.code).toBe("TIMER_LIMIT_REACHED");
+  });
+});
+
 describe("API safeguards", () => {
   it("rate-limits writes per shop", async () => {
     ({ app } = buildTestApp({ rateLimit: { max: 100, writeMax: 2 } }));
@@ -458,7 +627,7 @@ describe("database setup", () => {
     const indexes = await Timer.collection.indexes();
     expect(indexes.map((index) => index.name)).toEqual(
       expect.arrayContaining([
-        "shop_1_createdAt_-1",
+        "shop_1_type_1_createdAt_-1",
         "shop_1_name_1",
         "shop_1_target.resources.id_1",
       ]),

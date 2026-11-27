@@ -1,18 +1,24 @@
 # N Helixo Timer
 
-A Shopify embedded app for creating countdown timers that show on product pages. Merchants schedule a timer in the store's time zone, choose where it appears (all products, or specific products or collections chosen with the Shopify Resource Picker), and style it with a color, size and urgency effect. A live preview shows the result. A theme app extension block shows the timer to shoppers.
+A Shopify embedded app for creating timers that show on product pages. There are two kinds:
+
+- **Countdown timers** run on one schedule for every shopper. Merchants schedule them in the store's time zone.
+- **Evergreen timers** run for a set time (1 minute to 365 days) from each shopper's first visit, so every shopper gets their own countdown.
+
+Merchants choose where a timer appears (all products, or specific products or collections chosen with the Shopify Resource Picker), and style it with a color, size and urgency effect. A live preview shows the result. A theme app extension block shows the timer to shoppers.
 
 ## Features
 
 - **Home** (`web/frontend/pages/index.jsx`): one section that adds the Timer block to the product page through a theme editor deep link.
 - **Countdown timers** (`web/frontend/pages/countdown-timers.jsx`, in the app nav): Polaris index table with search, status filter (active, scheduled, expired), sorting, pagination, an empty state, and edit and delete actions.
-- **Create and edit modal** (`web/frontend/components/timers/TimerFormModal.jsx`):
-  - Name, schedule and description.
+- **Evergreen timers** (`web/frontend/pages/evergreen-timers.jsx`, in the app nav): the same table with a Duration column in place of status and schedule (every evergreen timer is always running), sorting by duration, search, pagination and edit and delete actions. Both pages share `web/frontend/components/timers/TimerListPage.jsx`.
+- **Create and edit modal** (`web/frontend/components/timers/TimerFormModal.jsx`), shared by both types:
+  - Name, description, and the timer's period: a schedule for countdowns, or a duration in days, hours and minutes for evergreen timers.
   - Targeting with the App Bridge Resource Picker.
   - Color picker, size and urgency settings, with a live preview that mirrors the storefront widget.
   - Inline validation that mirrors the server's rules.
-- **Time zones**: dates and times are entered in the shop's IANA time zone (read from the Admin API) and stored as UTC instants. A blank start means "start now".
-- **Translations**: English, German and French (`web/frontend/locales`, `extensions/timer-widget/locales`).
+- **Time zones**: countdown dates and times are entered in the shop's IANA time zone (read from the Admin API) and stored as UTC instants. A blank start means "start now". Evergreen timers don't need a time zone.
+- **Language**: English only. Admin text is in `web/frontend/locales/en.json`, storefront text in `extensions/timer-widget/locales`.
 - **Storefront widget** (`widget/`, `extensions/timer-widget/`): a Preact countdown in a theme app extension block. See [Storefront widget](#storefront-widget).
 
 ## Architecture
@@ -32,13 +38,15 @@ A Shopify embedded app for creating countdown timers that show on product pages.
 
 All routes are under `/api/timers`. Each one requires a valid App Bridge session token and only touches the calling shop's data.
 
-| Method | Path   | Description                                           |
-| ------ | ------ | ----------------------------------------------------- |
-| GET    | `/`    | List timers. Query: `query`, `status`, `sort`, `page` |
-| POST   | `/`    | Create a timer                                        |
-| GET    | `/:id` | Get one timer                                         |
-| PUT    | `/:id` | Replace a timer                                       |
-| DELETE | `/:id` | Delete a timer                                        |
+| Method | Path   | Description                                                   |
+| ------ | ------ | ------------------------------------------------------------- |
+| GET    | `/`    | List timers. Query: `type`, `query`, `status`, `sort`, `page` |
+| POST   | `/`    | Create a timer                                                |
+| GET    | `/:id` | Get one timer                                                 |
+| PUT    | `/:id` | Replace a timer                                               |
+| DELETE | `/:id` | Delete a timer                                                |
+
+Timers have a `type`: `countdown` (with `startDate`, `startTime`, `endDate`, `endTime`) or `evergreen` (with `durationMinutes`). A body without a `type` is a countdown, and a timer's type can't change. Lists show one type at a time (`type` defaults to `countdown`), and only countdown lists include the shop's `timezone`. Status filters only narrow countdowns; evergreen timers are always `active`.
 
 Errors use one shape: `{ "error": { "code", "message", "fields"?, "requestId" } }`. Validation failures return `422`, with a message for each field in `fields`.
 
@@ -50,12 +58,20 @@ The storefront API is under `/api/storefront`. Shoppers reach it as `/apps/n-hel
 
 ## Storefront widget
 
-The **Timer** app block (`extensions/timer-widget/blocks/timer.liquid`) renders a `<helixo-timer>` element with the product's ID and collection IDs, the block settings and translated strings. Its JavaScript is built from `widget/` into two bundles in the extension's `assets/`:
+The **Timer** app block (`extensions/timer-widget/blocks/timer.liquid`) renders a `<helixo-timer>` element with the product's ID and collection IDs, the block settings and the storefront text. Its JavaScript is built from `widget/` into two bundles in the extension's `assets/`:
 
 - `timer-widget.js` (about 3 KB gzipped) loads on every page with the block. It's framework-free: it fetches, caches and polls the product's timers.
 - `timer-widget-ui.js` (Preact and the countdown) loads only when there's a timer to show, so product pages without one don't pay for it.
 
-**Choosing a timer.** The API returns the timers that apply to the product and are running or start within 15 minutes, ordered by priority. Product targets come first, then collections, then all products, and the timer that ends soonest wins among equals. The widget shows the first one that's running, so it switches to the next timer at the exact second without another request. Timer names and targeting are never sent to the storefront.
+**Choosing a timer.** The API returns the timers that apply to the product and are running or start within 15 minutes, plus every evergreen timer that applies, each with its `priority` (how specifically it targets the product). Product targets come first, then collections, then all products, and the timer that ends soonest wins among equals. The widget shows the first one that's running, so it switches to the next timer at the exact second without another request. Timer names and targeting are never sent to the storefront.
+
+**Evergreen timers.** The server can't know when each shopper's evergreen timer ends, so it sends the duration, and the widget works out the rest (`widget/src/core/evergreen.js`):
+
+- A shopper's timer starts the first time their browser receives it, on their first visit to a product it applies to. The start is saved in `localStorage` (one entry per shop), so it carries across products, reloads, tabs and later visits. Once it runs out, it stays ended for that shopper.
+- Starts use the server-corrected clock. If two tabs start the same timer, the earliest start wins.
+- The widget orders timers again once it knows each shopper's end, so a shopper whose evergreen timer ends sooner sees it first.
+- If storage is blocked, the start is kept for the page only. In the theme editor, starts are never saved, so merchants don't use up their own timer.
+- Changing the duration in the admin moves the end for shoppers who already started; their start doesn't change.
 
 **Polling and caching.**
 

@@ -1,7 +1,7 @@
 import { waitFor } from "@testing-library/preact";
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { apiResponse, apiTimer, fakeFetch, HOUR, NOW } from "../test/helpers.js";
+import { apiEvergreenTimer, apiResponse, apiTimer, fakeFetch, HOUR, NOW } from "../test/helpers.js";
 
 const UI_SRC = "https://cdn.shopify.com/extensions/abc/assets/timer-widget-ui.js";
 
@@ -16,7 +16,6 @@ function addBlock({ productId = "1001", designMode = false, strings } = {}) {
     shop: "alpha-store.myshopify.com",
     productId,
     collectionIds: "2001,abc",
-    locale: "fr",
     designMode: String(designMode),
     visualPreview: "false",
   });
@@ -76,7 +75,7 @@ describe("<helixo-timer>", () => {
       "fetch",
       fakeFetch(() => apiResponse([apiTimer()])),
     );
-    const element = addBlock({ strings: { message: "Fin de l’offre dans" } });
+    const element = addBlock({ strings: { message: "Deal ends in" } });
 
     await waitFor(() => expect(ui.mount).toHaveBeenCalledTimes(1));
     const [host, { config, feed, clock }] = ui.mount.mock.calls[0];
@@ -84,9 +83,8 @@ describe("<helixo-timer>", () => {
     expect(config).toMatchObject({
       productId: "1001",
       collectionIds: ["2001"],
-      locale: "fr",
       designMode: false,
-      strings: { message: "Fin de l’offre dans", ended: "This offer has ended" },
+      strings: { message: "Deal ends in", ended: "This offer has ended" },
     });
     expect(feed.getState().timers).toHaveLength(1);
     expect(typeof clock.now).toBe("function");
@@ -106,6 +104,34 @@ describe("<helixo-timer>", () => {
     await waitFor(() => expect(fetch).toHaveBeenCalled());
     await settle();
     expect(ui.mount).not.toHaveBeenCalled();
+  });
+
+  it("shows a new shopper's evergreen timer", async () => {
+    vi.stubGlobal(
+      "fetch",
+      fakeFetch(() => apiResponse([apiEvergreenTimer({ durationMinutes: 30 })])),
+    );
+    addBlock();
+
+    await waitFor(() => expect(ui.mount).toHaveBeenCalledTimes(1));
+    const [, { feed }] = ui.mount.mock.calls[0];
+    expect(feed.getState().timers[0]).toMatchObject({ startsAt: NOW, endsAt: NOW + 30 * 60_000 });
+  });
+
+  it("doesn't load the UI for an evergreen timer that ran out for this shopper", async () => {
+    window.localStorage.setItem(
+      "helixo-timer:evergreen:alpha-store.myshopify.com",
+      JSON.stringify({ v: 1, starts: { e1: NOW - 2 * HOUR } }),
+    );
+    const fetch = fakeFetch(() => apiResponse([apiEvergreenTimer({ durationMinutes: 60 })]));
+    vi.stubGlobal("fetch", fetch);
+    const element = addBlock();
+
+    await waitFor(() => expect(fetch).toHaveBeenCalled());
+    await settle();
+
+    expect(ui.mount).not.toHaveBeenCalled();
+    expect(element.dataset.state).toBe("empty");
   });
 
   it("downloads the UI once for several blocks", async () => {

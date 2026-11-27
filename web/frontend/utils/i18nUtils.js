@@ -12,18 +12,10 @@ import { initReactI18next } from "react-i18next";
 const DEFAULT_APP_LOCALE = "en";
 
 /**
- * The supported locales for the app.
- *
- * These should correspond with the JSON files in the `locales` folder.
- *
- * @example
- *   en.json
- *   de.json
- *   fr.json
- * @see Available Shopify Admin languages in the Shopify Help Center:
- * https://help.shopify.com/en/manual/your-account/languages#available-languages
+ * The supported locales for the app. The app is in English only; each locale
+ * needs a JSON file in the `locales` folder.
  */
-const SUPPORTED_APP_LOCALES = ["en", "de", "fr"];
+const SUPPORTED_APP_LOCALES = ["en"];
 
 let _userLocale;
 
@@ -77,33 +69,9 @@ async function loadIntlPolyfills() {
   await Promise.all(promises);
 }
 
-/**
- * A subset of the available plural rules locales
- *  that match available Shopify Admin languages
- * @see Available Shopify Admin languages in the Shopify Help Center:
- * https://help.shopify.com/en/manual/your-account/languages#available-languages
- */
+/** Plural rules data for each supported locale. */
 const PLURAL_RULES_LOCALE_DATA = {
-  cs: () => import("@formatjs/intl-pluralrules/locale-data/cs"),
-  da: () => import("@formatjs/intl-pluralrules/locale-data/da"),
-  de: () => import("@formatjs/intl-pluralrules/locale-data/de"),
   en: () => import("@formatjs/intl-pluralrules/locale-data/en"),
-  es: () => import("@formatjs/intl-pluralrules/locale-data/es"),
-  fi: () => import("@formatjs/intl-pluralrules/locale-data/fi"),
-  fr: () => import("@formatjs/intl-pluralrules/locale-data/fr"),
-  it: () => import("@formatjs/intl-pluralrules/locale-data/it"),
-  ja: () => import("@formatjs/intl-pluralrules/locale-data/ja"),
-  ko: () => import("@formatjs/intl-pluralrules/locale-data/ko"),
-  nb: () => import("@formatjs/intl-pluralrules/locale-data/nb"),
-  nl: () => import("@formatjs/intl-pluralrules/locale-data/nl"),
-  pl: () => import("@formatjs/intl-pluralrules/locale-data/pl"),
-  pt: () => import("@formatjs/intl-pluralrules/locale-data/pt"),
-  "pt-PT": () => import("@formatjs/intl-pluralrules/locale-data/pt-PT"),
-  sv: () => import("@formatjs/intl-pluralrules/locale-data/sv"),
-  th: () => import("@formatjs/intl-pluralrules/locale-data/th"),
-  tr: () => import("@formatjs/intl-pluralrules/locale-data/tr"),
-  vi: () => import("@formatjs/intl-pluralrules/locale-data/vi"),
-  zh: () => import("@formatjs/intl-pluralrules/locale-data/zh"),
 };
 
 async function loadIntlPluralRulesLocaleData(locale) {

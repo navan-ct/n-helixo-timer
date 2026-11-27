@@ -9,8 +9,8 @@
       "seconds": "Sec"
     },
     "editor": {
-      "empty": "Preview: no timer is running for this product right now. Timers you create in the app appear here.",
-      "unavailable": "Preview: timers couldn’t be loaded. Make sure the app is installed, then refresh."
+      "empty": "Preview only. No timer is active for this product.",
+      "unavailable": "Preview only. Couldn’t load timers."
     }
   }
 }
