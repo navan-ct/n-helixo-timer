@@ -9,6 +9,17 @@ function shopOrIp(req, res) {
   return res.locals.shopify?.session?.shop ?? ipKeyGenerator(req.ip ?? "unknown");
 }
 
+/**
+ * Storefront requests arrive through Shopify's app proxy, so the connecting
+ * address is Shopify's. The shopper's address is the first entry Shopify puts
+ * in X-Forwarded-For. Keys are scoped to the shop the proxy signed for.
+ */
+function storefrontClient(req, res) {
+  const forwarded = req.get("x-forwarded-for")?.split(",")[0]?.trim();
+  const client = ipKeyGenerator(forwarded || req.ip || "unknown");
+  return `${res.locals.storefront?.shop ?? "unknown"}:${client}`;
+}
+
 function rateLimited(windowMs) {
   return (_req, _res, next) => {
     next(
@@ -24,17 +35,18 @@ function rateLimited(windowMs) {
  * - `api`: every authenticated API call, per shop.
  * - `apiWrites`: a stricter budget for mutations, per shop.
  * - `auth`: OAuth endpoints, per client IP (they run before a session exists).
+ * - `storefront`: the public widget endpoints, per shopper and shop.
  *
  * Counters are kept in memory, per process. If the app runs on several
  * instances, pass a shared store to each limiter (for example `rate-limit-redis`)
  * so the limits apply across all of them.
  *
  * @param {{
- *   windowMs: number, max: number, writeMax: number, authMax: number,
+ *   windowMs: number, max: number, writeMax: number, authMax: number, storefrontMax: number,
  *   logger: import("pino").Logger,
  * }} options
  */
-export function createRateLimiters({ windowMs, max, writeMax, authMax, logger }) {
+export function createRateLimiters({ windowMs, max, writeMax, authMax, storefrontMax, logger }) {
   const log = logger.child({ component: "rate-limit" });
   const common = {
     windowMs,
@@ -54,5 +66,6 @@ export function createRateLimiters({ windowMs, max, writeMax, authMax, logger })
       keyGenerator: shopOrIp,
     }),
     auth: rateLimit({ ...common, limit: authMax }),
+    storefront: rateLimit({ ...common, limit: storefrontMax, keyGenerator: storefrontClient }),
   };
 }

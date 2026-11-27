@@ -15,7 +15,7 @@ export default function NotFound() {
           </s-box>
           <s-text slot="subheading">{t("NotFound.description")}</s-text>
           <s-button slot="primary-action" variant="primary" onClick={() => navigate("/")}>
-            {t("NotFound.backToTimers")}
+            {t("NotFound.backToHome")}
           </s-button>
         </s-empty-state>
       </s-section>

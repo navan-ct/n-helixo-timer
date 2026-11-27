@@ -12,6 +12,7 @@ import { createRateLimiters } from "./middleware/rate-limit.js";
 import { closeConnectionsWhenStopping, requestContext } from "./middleware/request-context.js";
 import { securityHeaders } from "./middleware/security.js";
 import { createPrivacyWebhookHandlers } from "./privacy.js";
+import { createStorefrontRouter } from "./storefront/storefront.routes.js";
 
 /**
  * Serves the single-page app's HTML with the API key injected. In production
@@ -43,20 +44,31 @@ function appShell({ staticPath, apiKey, cacheHtml }) {
  * 3. compression;
  * 4. Shopify OAuth and webhooks (webhooks read the raw body, so no JSON parser
  *    runs before them);
- * 5. the authenticated JSON API;
- * 6. the app shell and static assets;
- * 7. a last-resort error handler.
+ * 5. the storefront API, which Shopify's app proxy authenticates by signature
+ *    (it's mounted before the session check below and answers every request);
+ * 6. the authenticated JSON API;
+ * 7. the app shell and static assets;
+ * 8. a last-resort error handler.
  *
  * @param {{
  *   config: ReturnType<typeof import("./config.js").loadConfig>,
  *   logger: import("pino").Logger,
  *   shopify: ReturnType<typeof import("./shopify.js").createShopify>,
  *   timerService: ReturnType<typeof import("./timers/timer.service.js").createTimerService>,
+ *   storefrontTimers: ReturnType<typeof import("./storefront/storefront-timers.js").createStorefrontTimers>,
  *   lifecycle: ReturnType<typeof import("./lib/lifecycle.js").createLifecycle>,
  *   readinessChecks: Record<string, () => Promise<unknown>>,
  * }} deps
  */
-export function createApp({ config, logger, shopify, timerService, lifecycle, readinessChecks }) {
+export function createApp({
+  config,
+  logger,
+  shopify,
+  timerService,
+  storefrontTimers,
+  lifecycle,
+  readinessChecks,
+}) {
   const app = express();
 
   app.disable("x-powered-by");
@@ -86,6 +98,16 @@ export function createApp({ config, logger, shopify, timerService, lifecycle, re
     shopify.config.webhooks.path,
     shopify.processWebhooks({
       webhookHandlers: createPrivacyWebhookHandlers({ timerService, logger }),
+    }),
+  );
+
+  // Storefront widget API, reached through the app proxy (see shopify.app.toml).
+  app.use(
+    "/api/storefront",
+    createStorefrontRouter({
+      storefrontTimers,
+      validateSignature: (query) => shopify.api.utils.validateHmac(query, { signator: "appProxy" }),
+      limiter: limiters.storefront,
     }),
   );
 

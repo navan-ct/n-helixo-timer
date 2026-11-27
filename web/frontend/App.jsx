@@ -1,6 +1,6 @@
 import { BrowserRouter } from "react-router-dom";
 
-import { QueryProvider } from "./components";
+import { AppNav, QueryProvider } from "./components";
 import Routes from "./Routes";
 
 // Any .jsx file in /pages becomes a route. See Routes.jsx for details.
@@ -10,6 +10,7 @@ export default function App() {
   return (
     <BrowserRouter>
       <QueryProvider>
+        <AppNav />
         <Routes pages={pages} />
       </QueryProvider>
     </BrowserRouter>

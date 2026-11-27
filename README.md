@@ -1,22 +1,25 @@
 # N Helixo Timer
 
-A Shopify embedded app for creating countdown timers that show on product pages. Merchants schedule a timer in the store's time zone, choose where it appears (all products, or specific products or collections chosen with the Shopify Resource Picker), and style it with a color, size, position and urgency effect. A live preview shows the result.
+A Shopify embedded app for creating countdown timers that show on product pages. Merchants schedule a timer in the store's time zone, choose where it appears (all products, or specific products or collections chosen with the Shopify Resource Picker), and style it with a color, size, position and urgency effect. A live preview shows the result. A theme app extension block shows the timer to shoppers.
 
 ## Features
 
-- **Timer list** (`web/frontend/pages/index.jsx`): Polaris index table with search, status filter (active, scheduled, expired), sorting, pagination, an empty state, and edit and delete actions.
+- **Home** (`web/frontend/pages/index.jsx`): one section that adds the Timer block to the product page through a theme editor deep link.
+- **Countdown timers** (`web/frontend/pages/countdown-timers.jsx`, in the app nav): Polaris index table with search, status filter (active, scheduled, expired), sorting, pagination, an empty state, and edit and delete actions.
 - **Create and edit modal** (`web/frontend/components/timers/TimerFormModal.jsx`):
   - Name, schedule and description.
   - Targeting with the App Bridge Resource Picker.
   - Color picker with a live storefront preview, plus size, position and urgency settings.
   - Inline validation that mirrors the server's rules.
 - **Time zones**: dates and times are entered in the shop's IANA time zone (read from the Admin API) and stored as UTC instants. A blank start means "start now".
-- **Translations**: English, German and French (`web/frontend/locales`).
+- **Translations**: English, German and French (`web/frontend/locales`, `extensions/timer-widget/locales`).
+- **Storefront widget** (`widget/`, `extensions/timer-widget/`): a Preact countdown in a theme app extension block. See [Storefront widget](#storefront-widget).
 
 ## Architecture
 
 | Layer          | Where                                 | Notes                                                                                                                   |
 | -------------- | ------------------------------------- | ----------------------------------------------------------------------------------------------------------------------- |
+| Storefront     | `widget`, `extensions/timer-widget`   | Preact widget bundled into a theme app extension; data from `web/storefront` through the app proxy                       |
 | UI             | `web/frontend`                        | React 19 + [Polaris web components](https://shopify.dev/docs/api/app-home/web-components) (`polaris-2.js`) + App Bridge |
 | Bootstrap      | `web/index.js`, `web/server.js`       | Loads config, connects dependencies in order, starts HTTP, owns the lifecycle                                           |
 | HTTP pipeline  | `web/app.js`                          | Express app built from injected dependencies (the same pipeline runs in tests)                                          |
@@ -38,6 +41,39 @@ All routes are under `/api/timers`. Each one requires a valid App Bridge session
 | DELETE | `/:id` | Delete a timer                                        |
 
 Errors use one shape: `{ "error": { "code", "message", "fields"?, "requestId" } }`. Validation failures return `422`, with a message for each field in `fields`.
+
+The storefront API is under `/api/storefront`. Shoppers reach it as `/apps/n-helixo-timer/*` on the shop's domain, and Shopify's [app proxy](https://shopify.dev/docs/apps/build/online-store/app-proxies) forwards and signs each request (`[app_proxy]` in `shopify.app.toml`). It needs no session: the signature is verified instead, and the signed `shop` scopes the data.
+
+| Method | Path                                         | Description                                                                                   |
+| ------ | -------------------------------------------- | --------------------------------------------------------------------------------------------- |
+| GET    | `/timers?product=<id>&collections=<id,id,…>` | Timers for one product page in priority order, plus the server time and the refresh interval |
+
+## Storefront widget
+
+The **Timer** app block (`extensions/timer-widget/blocks/timer.liquid`) renders a `<helixo-timer>` element with the product's ID and collection IDs, the block settings and translated strings. Its JavaScript is built from `widget/` into two bundles in the extension's `assets/`:
+
+- `timer-widget.js` (about 3 KB gzipped) loads on every page with the block. It's framework-free: it fetches, caches and polls the product's timers.
+- `timer-widget-ui.js` (Preact and the countdown) loads only when there's a timer to show, so product pages without one don't pay for it.
+
+**Choosing a timer.** The API returns the timers that apply to the product and are running or start within 15 minutes, ordered by priority. Product targets come first, then collections, then all products, and the timer that ends soonest wins among equals. The widget shows the first one that's running, so it switches to the next timer at the exact second without another request. Timer names and targeting are never sent to the storefront.
+
+**Polling and caching.**
+
+- **Server**: each shop's unexpired timers are cached in memory for 30 seconds. Concurrent requests share one query, and admin changes invalidate the cache immediately on that instance.
+- **Browser**: responses are cached in `localStorage`, so repeat views (and other tabs) render instantly and skip the request while fresh. Stale data shows while a fresh copy loads.
+- **Polling**: the widget refreshes on the interval the server sends (60 seconds, with jitter), only while the tab is visible.
+
+**Edge cases.**
+
+- **Network failures**: a request is aborted after 10 seconds. Failed requests retry with exponential backoff (honoring `Retry-After`), and again as soon as the browser is back online. Known timers keep counting down meanwhile.
+- **Clock errors**: the countdown corrects the shopper's device clock against the server time.
+- **Expired timers**: when a timer runs out on screen, the widget shows "This offer has ended" unless another timer takes over. When there's no timer, the block hides along with the theme's spacing around it.
+- **Theme editor**: when no timer is running, it shows a sample and a short note, so merchants can see and place the block.
+- **Bad data**: malformed data, a storefront password page or blocked storage never break the product page.
+
+**Polish.** Digits roll as they change, the urgency effect (color pulse or shake) plays during the final hour, and a progress line shows the time left. It respects `prefers-reduced-motion`, and screen readers get a minute-level description.
+
+`shopify app dev` rebuilds the widget on change (`widget/shopify.web.toml`). `npm run deploy` builds it before deploying. The built files are committed because they're what the extension ships.
 
 ## Server operations
 
@@ -97,6 +133,7 @@ Logs are structured JSON from pino in production and readable output in developm
 | API        | Shop                 | 120 / min |
 | API writes | Shop                 | 30 / min  |
 | OAuth      | Client IP (IPv6 /56) | 30 / min  |
+| Storefront | Shop and shopper IP  | 120 / min |
 
 Counters are kept in memory, per instance. Responses include the standard `RateLimit` headers and `Retry-After`. If you run several instances, give each limiter a shared store (for example [`rate-limit-redis`](https://www.npmjs.com/package/rate-limit-redis)) in `web/middleware/rate-limit.js`.
 
@@ -123,9 +160,10 @@ Run from the repository root:
 | Command          | What it does                                    |
 | ---------------- | ----------------------------------------------- |
 | `npm run dev`    | Start the app with the Shopify CLI              |
+| `npm run deploy` | Build the storefront widget, then deploy        |
 | `npm run lint`   | ESLint (flat config in `eslint.config.mjs`)     |
 | `npm run format` | Format with Prettier (`format:check` to verify) |
-| `npm test`       | Backend and frontend unit tests (Vitest)        |
+| `npm test`       | Backend, admin and widget unit tests (Vitest)   |
 | `npm run check`  | Lint, format check and tests together           |
 
 Backend tests cover config, lifecycle, HTTP draining, the full app pipeline (probes, headers, limits, errors, the app shell) and the API. The API tests run against an in-memory MongoDB (`mongodb-memory-server`, which downloads a MongoDB binary on first run) with fake Shopify dependencies. Frontend tests use jsdom and Testing Library.

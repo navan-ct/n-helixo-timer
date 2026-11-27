@@ -7,7 +7,7 @@ embedded = true
 
 [access_scopes]
 # Learn more at https://shopify.dev/docs/apps/tools/cli/configuration#access_scopes
-scopes = "write_products"
+scopes = "write_products,write_app_proxy"
 
 [auth]
 redirect_urls = [ "https://example.com/api/auth/callback" ]
@@ -19,6 +19,13 @@ api_version = "2027-01"
   [[webhooks.subscriptions]]
   compliance_topics = [ "customers/data_request", "customers/redact", "shop/redact" ]
   uri = "/api/webhooks"
+
+# Storefront widget data: /apps/n-helixo-timer/* on the shop's domain is
+# forwarded (signed) to /api/storefront/* (web/storefront).
+[app_proxy]
+url = "/api/storefront"
+prefix = "apps"
+subpath = "n-helixo-timer"
 
 [build]
 automatically_update_urls_on_dev = true

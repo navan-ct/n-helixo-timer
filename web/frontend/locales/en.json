@@ -10,10 +10,24 @@
     "body": "Apps can only use /exitiframe to reach Shopify or the app itself.",
     "heading": "Redirecting outside of Shopify"
   },
+  "HomePage": {
+    "heading": "Show timers on your product pages",
+    "body": "Add the Timer block to your product page in the theme editor. It shows the countdown timer that applies to each product, and hides itself when none is running.",
+    "steps": {
+      "add": "Select Add to product page, then save the theme editor.",
+      "move": "Drag the block to where it fits best, such as above the Add to cart button.",
+      "create": "Create a countdown timer and choose the products it applies to."
+    },
+    "addBlock": "Add to product page",
+    "createTimer": "Create countdown timer"
+  },
+  "NavigationMenu": {
+    "countdownTimers": "Countdown timers"
+  },
   "NotFound": {
-    "backToTimers": "Back to timers",
-    "description": "Check the URL and try again, or go back to your timers.",
-    "heading": "There is no page at this address"
+    "description": "Check the URL and try again, or go to the app’s home page.",
+    "heading": "There is no page at this address",
+    "backToHome": "Go to home"
   },
   "TargetPicker": {
     "all": "All products",
@@ -177,6 +191,6 @@
     "loadError": "Timers couldn’t be loaded",
     "retry": "Try again",
     "subtitle": "Create and manage countdown timers for your promotions.",
-    "title": "Countdown Timer"
+    "title": "Countdown timers"
   }
 }

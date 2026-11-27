@@ -1,0 +1,81 @@
+{%- liquid
+  assign collection_ids = product.collections | map: 'id' | join: ','
+  if block.settings.alignment == 'start'
+    assign justify = 'flex-start'
+  else
+    assign justify = 'center'
+  endif
+-%}
+<helixo-timer
+  data-state="empty"
+  data-endpoint="/apps/n-helixo-timer/timers"
+  data-ui-src="{{ 'timer-widget-ui.js' | asset_url }}"
+  data-shop="{{ shop.permanent_domain }}"
+  data-product-id="{{ product.id }}"
+  data-collection-ids="{{ collection_ids }}"
+  data-locale="{{ request.locale.iso_code }}"
+  data-design-mode="{{ request.design_mode }}"
+  data-visual-preview="{{ request.visual_preview_mode }}"
+  style="--hx-space-top: {{ block.settings.space_top }}px; --hx-space-bottom: {{ block.settings.space_bottom }}px; --hx-align: {{ block.settings.alignment }}; --hx-justify: {{ justify }};"
+>
+  <script type="application/json" data-strings>
+    {
+      "message": {{ 'timer.message' | t | json }},
+      "ended": {{ 'timer.ended' | t | json }},
+      "days": {{ 'timer.units.days' | t | json }},
+      "hours": {{ 'timer.units.hours' | t | json }},
+      "minutes": {{ 'timer.units.minutes' | t | json }},
+      "seconds": {{ 'timer.units.seconds' | t | json }},
+      "editorEmpty": {{ 'timer.editor.empty' | t | json }},
+      "editorUnavailable": {{ 'timer.editor.unavailable' | t | json }}
+    }
+  </script>
+</helixo-timer>
+
+{% schema %}
+{
+  "name": "t:blocks.timer.name",
+  "target": "content",
+  "javascript": "timer-widget.js",
+  "stylesheet": "timer-widget.css",
+  "enabled_on": {
+    "templates": ["product"]
+  },
+  "settings": [
+    {
+      "type": "paragraph",
+      "content": "t:blocks.timer.settings.info.content"
+    },
+    {
+      "type": "select",
+      "id": "alignment",
+      "label": "t:blocks.timer.settings.alignment.label",
+      "options": [
+        { "value": "start", "label": "t:blocks.timer.settings.alignment.options.start" },
+        { "value": "center", "label": "t:blocks.timer.settings.alignment.options.center" }
+      ],
+      "default": "center"
+    },
+    {
+      "type": "range",
+      "id": "space_top",
+      "label": "t:blocks.timer.settings.space_top.label",
+      "min": 0,
+      "max": 40,
+      "step": 2,
+      "unit": "px",
+      "default": 0
+    },
+    {
+      "type": "range",
+      "id": "space_bottom",
+      "label": "t:blocks.timer.settings.space_bottom.label",
+      "min": 0,
+      "max": 40,
+      "step": 2,
+      "unit": "px",
+      "default": 0
+    }
+  ]
+}
+{% endschema %}

@@ -1,0 +1,16 @@
+{
+  "timer": {
+    "message": "Sale ends in",
+    "ended": "This offer has ended",
+    "units": {
+      "days": "Days",
+      "hours": "Hrs",
+      "minutes": "Min",
+      "seconds": "Sec"
+    },
+    "editor": {
+      "empty": "Preview: no timer is running for this product right now. Timers you create in the app appear here.",
+      "unavailable": "Preview: timers couldn’t be loaded. Make sure the app is installed, then refresh."
+    }
+  }
+}

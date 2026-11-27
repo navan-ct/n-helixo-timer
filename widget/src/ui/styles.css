@@ -1,0 +1,306 @@
+/*
+ * Storefront timer widget. Every selector is prefixed (`hx-`, `helixo-timer`)
+ * so theme styles don't reach in and these styles don't leak out. Sizes use
+ * px and em rather than rem, because themes set very different root font sizes.
+ */
+
+helixo-timer {
+  display: block;
+  margin-block: var(--hx-space-top, 0) var(--hx-space-bottom, 0);
+  container-type: inline-size;
+}
+
+/* Nothing to show: take no space, including the theme's spacing around the block. */
+helixo-timer[data-state="empty"],
+.shopify-app-block:has(> helixo-timer[data-state="empty"]) {
+  display: none;
+}
+
+.hx-root--enter {
+  animation: hx-enter 0.5s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+.hx-timer {
+  --hx-color: #008060;
+  --hx-text: #ffffff;
+  --hx-tile: color-mix(in srgb, var(--hx-text) 14%, transparent);
+  box-sizing: border-box;
+  position: relative;
+  overflow: hidden;
+  padding: 14px 16px 16px;
+  border-radius: 12px;
+  background: var(--hx-color);
+  color: var(--hx-text);
+  font-family: inherit;
+  font-size: 15px;
+  line-height: 1.3;
+  text-align: var(--hx-align, center);
+  -webkit-font-smoothing: antialiased;
+}
+
+.hx-timer--small {
+  padding: 10px 12px 12px;
+  border-radius: 10px;
+  font-size: 13px;
+}
+
+.hx-timer--large {
+  padding: 18px 20px 20px;
+  border-radius: 14px;
+  font-size: 17px;
+}
+
+.hx-timer__message {
+  margin: 0 0 0.6em;
+  font-size: 1em;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  white-space: pre-line;
+  overflow-wrap: anywhere;
+}
+
+.hx-timer__clock {
+  display: flex;
+  flex-wrap: nowrap;
+  justify-content: var(--hx-justify, center);
+  align-items: flex-start;
+  gap: 0.3em;
+  font-variant-numeric: tabular-nums;
+}
+
+.hx-timer__group {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.3em;
+}
+
+.hx-timer__unit {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  min-width: 3.1em;
+}
+
+.hx-timer__digits {
+  display: inline-flex;
+  justify-content: center;
+  min-width: 1.9em;
+  padding: 0.12em 0.28em;
+  border-radius: 0.3em;
+  background: var(--hx-tile);
+  font-size: 1.75em;
+  font-weight: 700;
+  line-height: 1.15;
+  transition: opacity 0.4s ease;
+}
+
+.hx-timer__separator {
+  padding-top: 0.12em;
+  font-size: 1.75em;
+  font-weight: 600;
+  line-height: 1.15;
+  opacity: 0.55;
+}
+
+.hx-timer__label {
+  margin-top: 0.45em;
+  font-size: 0.68em;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  opacity: 0.82;
+}
+
+.hx-timer__progress {
+  position: absolute;
+  inset: auto 0 0;
+  height: 3px;
+  background: color-mix(in srgb, var(--hx-text) 16%, transparent);
+}
+
+.hx-timer__progress-bar {
+  display: block;
+  height: 100%;
+  background: color-mix(in srgb, var(--hx-text) 70%, transparent);
+  transform-origin: left center;
+  transition: transform 1s linear;
+}
+
+[dir="rtl"] .hx-timer__progress-bar {
+  transform-origin: right center;
+}
+
+/* Rolling digits. The outgoing glyph sits on top of the incoming one. */
+.hx-digit {
+  position: relative;
+  display: inline-block;
+  overflow: hidden;
+  /* Room for the slide without clipping descenders of the incoming glyph. */
+  padding-block: 0.04em;
+  margin-block: -0.04em;
+}
+
+.hx-digit__glyph {
+  display: block;
+}
+
+.hx-digit__glyph--in {
+  animation: hx-digit-in 0.42s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+.hx-digit__glyph--out {
+  position: absolute;
+  inset: 0.04em 0;
+  animation: hx-digit-out 0.42s cubic-bezier(0.2, 0.8, 0.2, 1) forwards;
+}
+
+/* Ended: digits at zero, dimmed. */
+.hx-timer--ended .hx-timer__digits,
+.hx-timer--ended .hx-timer__separator {
+  opacity: 0.45;
+}
+
+/* Urgency effects during the final hour. */
+.hx-timer--color_pulse {
+  animation: hx-pulse 1.6s ease-in-out infinite;
+}
+
+.hx-timer--shake {
+  animation: hx-shake 4s ease-in-out infinite;
+}
+
+.hx-notice {
+  margin: 8px 0 0;
+  padding: 8px 12px;
+  border: 1px dashed currentColor;
+  border-radius: 8px;
+  font-size: 13px;
+  line-height: 1.4;
+  opacity: 0.75;
+  text-align: start;
+}
+
+.hx-sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* Narrow columns, such as product info on small phones. */
+@container (max-width: 340px) {
+  .hx-timer__clock,
+  .hx-timer__group {
+    gap: 0.2em;
+  }
+
+  .hx-timer__unit {
+    min-width: 2.6em;
+  }
+
+  .hx-timer__digits {
+    min-width: 1.7em;
+    padding-inline: 0.2em;
+    font-size: 1.5em;
+  }
+
+  .hx-timer__separator {
+    font-size: 1.5em;
+  }
+}
+
+@keyframes hx-enter {
+  from {
+    opacity: 0;
+    transform: translateY(6px) scale(0.985);
+  }
+}
+
+@keyframes hx-digit-in {
+  from {
+    opacity: 0;
+    transform: translateY(65%);
+  }
+}
+
+@keyframes hx-digit-out {
+  to {
+    opacity: 0;
+    transform: translateY(-65%);
+  }
+}
+
+@keyframes hx-pulse {
+  0%,
+  100% {
+    background-color: var(--hx-color);
+    box-shadow: 0 0 0 0 color-mix(in srgb, var(--hx-color) 45%, transparent);
+  }
+  50% {
+    background-color: color-mix(in srgb, var(--hx-color) 78%, #ffffff);
+    box-shadow: 0 0 0 5px color-mix(in srgb, var(--hx-color) 0%, transparent);
+  }
+}
+
+@keyframes hx-shake {
+  0%,
+  12%,
+  100% {
+    transform: translateX(0);
+  }
+  2%,
+  6%,
+  10% {
+    transform: translateX(-3px) rotate(-0.4deg);
+  }
+  4%,
+  8% {
+    transform: translateX(3px) rotate(0.4deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hx-root--enter {
+    animation: hx-fade 0.3s ease;
+  }
+
+  .hx-digit__glyph--in {
+    animation: hx-fade 0.2s ease;
+  }
+
+  .hx-digit__glyph--out {
+    display: none;
+  }
+
+  .hx-timer--color_pulse,
+  .hx-timer--shake {
+    animation: none;
+    outline: 2px solid var(--hx-text);
+    outline-offset: -5px;
+  }
+
+  .hx-timer__progress-bar {
+    transition: none;
+  }
+}
+
+@keyframes hx-fade {
+  from {
+    opacity: 0;
+  }
+}
+
+@media (forced-colors: active) {
+  .hx-timer {
+    border: 1px solid CanvasText;
+  }
+
+  .hx-timer__progress-bar {
+    background: CanvasText;
+  }
+}

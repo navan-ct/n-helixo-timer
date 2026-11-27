@@ -11,7 +11,7 @@ import globals from "globals";
 
 const FRONTEND = "web/frontend/**/*.{js,jsx}";
 const BACKEND = "web/**/*.js";
-const TESTS = ["**/*.test.{js,jsx}", "web/test/**", "web/frontend/test/**"];
+const TESTS = ["**/*.test.{js,jsx}", "web/test/**", "web/frontend/test/**", "widget/test/**"];
 
 export default defineConfig([
   globalIgnores([
@@ -20,6 +20,8 @@ export default defineConfig([
     "**/coverage/**",
     ".shopify/**",
     "extensions/*/build/**",
+    // Built from widget/.
+    "extensions/timer-widget/assets/**",
   ]),
 
   // Baseline for all JavaScript.
@@ -140,6 +142,21 @@ export default defineConfig([
       "@eslint-react/no-array-index-key": "error",
       "@eslint-react/no-missing-key": "error",
     },
+  },
+
+  // Storefront widget: Preact in the shopper's browser (theme app extension).
+  {
+    files: ["widget/**/*.{js,jsx}"],
+    ignores: ["widget/vite.config.js", "widget/build.js"],
+    extends: [reactHooks.configs.flat["recommended-latest"], jsxA11y.configs.recommended],
+    languageOptions: {
+      globals: globals.browser,
+      parserOptions: { ecmaFeatures: { jsx: true } },
+    },
+  },
+  {
+    files: ["widget/vite.config.js", "widget/build.js"],
+    languageOptions: { globals: globals.node },
   },
 
   // Vite injects these at build time.

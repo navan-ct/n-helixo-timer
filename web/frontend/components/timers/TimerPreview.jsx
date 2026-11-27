@@ -33,7 +33,10 @@ export function TimerPreview({ color, size, position, urgency, description, ends
   const background = HEX_COLOR.test(color) ? color : "#008060";
   const remaining =
     endsAt && endsAt > now ? endsAt - now : endsAt ? 0 : SAMPLE_DURATION_MS - (now % 60_000);
-  const { days, hours, minutes, seconds } = splitDuration(remaining);
+  // Rounded up like the storefront countdown, which shows zero only once it has ended.
+  const { days, hours, minutes, seconds } = splitDuration(Math.ceil(remaining / 1000) * 1000);
+  // The progress line depends on the start time; the preview shows it part-way.
+  const progress = 0.65;
   const units = [
     [days, t("TimerPreview.days")],
     [hours, t("TimerPreview.hours")],
@@ -41,21 +44,31 @@ export function TimerPreview({ color, size, position, urgency, description, ends
     [seconds, t("TimerPreview.seconds")],
   ];
 
+  // Mirrors the storefront widget's markup (widget/src/ui/Countdown.jsx) so the
+  // preview matches what shoppers see.
   const bar = (
     <div
       className={`timer-preview__bar timer-preview__bar--${size} timer-preview__bar--${urgency}`}
-      style={{ "--timer-color": background, color: readableTextColor(background) }}
+      style={{ "--timer-color": background, "--timer-text": readableTextColor(background) }}
     >
-      <span className="timer-preview__message">
-        {description?.split("\n")[0] || t("TimerPreview.defaultMessage")}
-      </span>
+      <p className="timer-preview__message">{description || t("TimerPreview.defaultMessage")}</p>
       <span className="timer-preview__clock" role="timer" aria-live="off">
-        {units.map(([value, label]) => (
-          <span key={label} className="timer-preview__unit">
-            <span className="timer-preview__value">{String(value).padStart(2, "0")}</span>
-            <span className="timer-preview__label">{label}</span>
+        {units.map(([value, label], index) => (
+          <span key={label} className="timer-preview__group">
+            {index > 0 && (
+              <span className="timer-preview__separator" aria-hidden="true">
+                :
+              </span>
+            )}
+            <span className="timer-preview__unit">
+              <span className="timer-preview__value">{String(value).padStart(2, "0")}</span>
+              <span className="timer-preview__label">{label}</span>
+            </span>
           </span>
         ))}
+      </span>
+      <span className="timer-preview__progress" aria-hidden="true">
+        <span style={{ transform: `scaleX(${progress})` }} />
       </span>
     </div>
   );

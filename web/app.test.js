@@ -9,7 +9,7 @@ import { createApp } from "./app.js";
 import { loadConfig } from "./config.js";
 import { createLifecycle } from "./lib/lifecycle.js";
 import { silentLogger as logger } from "./lib/logger.js";
-import { createFakeShopify, SHOP } from "./test/helpers.js";
+import { createFakeShopify, SHOP, signedProxyQuery } from "./test/helpers.js";
 
 const staticPath = mkdtempSync(join(tmpdir(), "timer-app-"));
 writeFileSync(
@@ -33,7 +33,14 @@ function buildConfig({ production = false, rateLimit = {} } = {}) {
   };
 }
 
-function buildApp({ production, rateLimit, timerService, readinessChecks, shopify } = {}) {
+function buildApp({
+  production,
+  rateLimit,
+  timerService,
+  storefrontTimers,
+  readinessChecks,
+  shopify,
+} = {}) {
   const lifecycle = createLifecycle({ logger, timeoutMs: 1_000, exit: vi.fn() });
   const app = createApp({
     config: buildConfig({ production, rateLimit }),
@@ -44,6 +51,9 @@ function buildApp({ production, rateLimit, timerService, readinessChecks, shopif
     timerService: timerService ?? {
       list: vi.fn(async () => ({ timers: [], pageInfo: {}, timezone: "UTC" })),
       removeAllForShop: vi.fn(),
+    },
+    storefrontTimers: storefrontTimers ?? {
+      forProduct: vi.fn(async () => ({ timers: [], serverTime: "", refreshInterval: 60 })),
     },
   });
   return { app, lifecycle };
@@ -156,6 +166,29 @@ describe("security", () => {
   it("requires an authenticated session for the API", async () => {
     const { app } = buildApp();
     expect((await request(app).get("/api/timers")).status).toBe(401);
+  });
+
+  it("serves the storefront API to signed app proxy requests, without an admin session", async () => {
+    const storefrontTimers = {
+      forProduct: vi.fn(async () => ({ timers: [], serverTime: "", refreshInterval: 60 })),
+    };
+    const { app } = buildApp({ storefrontTimers });
+
+    const signed = await request(app).get(
+      `/api/storefront/timers?${signedProxyQuery({ product: "1" })}`,
+    );
+    const unsigned = await request(app).get(`/api/storefront/timers?shop=${SHOP}&product=1`);
+
+    expect(signed.status).toBe(200);
+    expect(signed.headers["content-security-policy"]).toBe(
+      "default-src 'none';frame-ancestors 'none'",
+    );
+    expect(storefrontTimers.forProduct).toHaveBeenCalledWith(SHOP, {
+      productId: "1",
+      collectionIds: [],
+    });
+    expect(unsigned.status).toBe(401);
+    expect(unsigned.body.error.code).toBe("INVALID_SIGNATURE");
   });
 
   it("parses query strings flat, so operator objects can't reach handlers", async () => {

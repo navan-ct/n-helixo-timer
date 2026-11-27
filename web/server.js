@@ -14,6 +14,7 @@ import { createLogger } from "./lib/logger.js";
 import { createShopifyAdminApi } from "./shopify/admin-api.js";
 import { createSessionStorage } from "./shopify/session-storage.js";
 import { createShopify } from "./shopify.js";
+import { createStorefrontTimers } from "./storefront/storefront-timers.js";
 import { Timer } from "./timers/timer.model.js";
 import { createTimerService } from "./timers/timer.service.js";
 
@@ -55,13 +56,19 @@ export async function startServer({ env = process.env } = {}) {
       timeoutMs: config.shopify.apiTimeoutMs,
       retries: config.shopify.apiRetries,
     });
-    const timerService = createTimerService({ Timer, adminApi });
+    const storefrontTimers = createStorefrontTimers({ Timer });
+    const timerService = createTimerService({
+      Timer,
+      adminApi,
+      onChange: (shop) => storefrontTimers.invalidate(shop),
+    });
 
     const app = createApp({
       config,
       logger,
       shopify,
       timerService,
+      storefrontTimers,
       lifecycle,
       readinessChecks: { database: () => pingDatabase(), sessionStorage: sessions.ping },
     });
