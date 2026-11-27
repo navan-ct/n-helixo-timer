@@ -1,4 +1,144 @@
-# Shopify App Template for Node
+# N Helixo Timer
+
+A Shopify embedded app for creating countdown timers that show on product pages. Merchants schedule a timer in the store's time zone, choose where it appears (all products, or specific products or collections chosen with the Shopify Resource Picker), and style it with a color, size, position and urgency effect. A live preview shows the result.
+
+## Features
+
+- **Timer list** (`web/frontend/pages/index.jsx`): Polaris index table with search, status filter (active, scheduled, expired), sorting, pagination, an empty state, and edit and delete actions.
+- **Create and edit modal** (`web/frontend/components/timers/TimerFormModal.jsx`):
+  - Name, schedule and description.
+  - Targeting with the App Bridge Resource Picker.
+  - Color picker with a live storefront preview, plus size, position and urgency settings.
+  - Inline validation that mirrors the server's rules.
+- **Time zones**: dates and times are entered in the shop's IANA time zone (read from the Admin API) and stored as UTC instants. A blank start means "start now".
+- **Translations**: English, German and French (`web/frontend/locales`).
+
+## Architecture
+
+| Layer          | Where                                 | Notes                                                                                                                   |
+| -------------- | ------------------------------------- | ----------------------------------------------------------------------------------------------------------------------- |
+| UI             | `web/frontend`                        | React 19 + [Polaris web components](https://shopify.dev/docs/api/app-home/web-components) (`polaris-2.js`) + App Bridge |
+| Bootstrap      | `web/index.js`, `web/server.js`       | Loads config, connects dependencies in order, starts HTTP, owns the lifecycle                                           |
+| HTTP pipeline  | `web/app.js`                          | Express app built from injected dependencies (the same pipeline runs in tests)                                          |
+| Config         | `web/config.js`                       | Every environment variable, validated with Zod at startup                                                               |
+| API            | `web/api`, `web/timers`               | JSON API router; timer validation (Zod), service and Mongoose model                                                     |
+| Shopify        | `web/shopify.js`, `web/shopify/`      | OAuth, session tokens, webhooks, session storage, Admin GraphQL adapter                                                 |
+| Infrastructure | `web/lib`, `web/middleware`, `web/db` | Logging, lifecycle, HTTP server, health, security, rate limiting, errors, MongoDB                                       |
+
+### API
+
+All routes are under `/api/timers`. Each one requires a valid App Bridge session token and only touches the calling shop's data.
+
+| Method | Path   | Description                                           |
+| ------ | ------ | ----------------------------------------------------- |
+| GET    | `/`    | List timers. Query: `query`, `status`, `sort`, `page` |
+| POST   | `/`    | Create a timer                                        |
+| GET    | `/:id` | Get one timer                                         |
+| PUT    | `/:id` | Replace a timer                                       |
+| DELETE | `/:id` | Delete a timer                                        |
+
+Errors use one shape: `{ "error": { "code", "message", "fields"?, "requestId" } }`. Validation failures return `422`, with a message for each field in `fields`.
+
+## Server operations
+
+### Configuration
+
+`web/config.js` validates the environment once at startup. Missing or invalid values stop the process with a list of all the problems. Only settings that differ between environments are read from the environment; fixed values such as timeouts, pool size and rate limits are named constants at the top of `web/config.js`.
+
+| Variable                                                  | Notes                                                                                 |
+| --------------------------------------------------------- | ------------------------------------------------------------------------------------- |
+| `MONGODB_URI`                                             | Required                                                                              |
+| `SHOPIFY_API_KEY`, `SHOPIFY_API_SECRET`, `SCOPES`, `HOST` | Required. The Shopify CLI sets them (and `BACKEND_PORT`) in development               |
+| `MONGODB_DB_NAME`, `PORT`, `LOG_LEVEL`                    | Optional                                                                              |
+| `TRUST_PROXY`                                             | Optional. Which proxies to trust for client IPs (defaults to private networks)        |
+| `SHUTDOWN_TIMEOUT_MS`, `SHUTDOWN_DELAY_MS`                | Optional. Fit these to your platform's grace period before it force-kills the process |
+
+`web/.env.example` lists them with their defaults. In development, MongoDB settings come from `web/.env`.
+
+### Startup and graceful shutdown
+
+`web/server.js` starts things in order: MongoDB (and model indexes), then Shopify session storage, then the app, then the HTTP listener. Only after that does readiness report healthy. Each resource registers a cleanup step as it starts (`web/lib/lifecycle.js`).
+
+On `SIGTERM` or `SIGINT`, or after an uncaught exception or unhandled rejection, the server:
+
+1. Marks itself not ready, so `/readyz` returns 503, and keeps serving for `SHUTDOWN_DELAY_MS` (5s in production, 0 in development) while load balancers deregister it.
+2. Sends `Connection: close` on responses, so keep-alive clients move to other instances.
+3. Stops accepting connections, lets in-flight requests finish, and closes keep-alive sockets as they go idle.
+4. Closes session storage and MongoDB.
+5. Exits with 0 (or 1 after a fatal error).
+
+The whole sequence is capped by `SHUTDOWN_TIMEOUT_MS`. A second signal exits immediately. If startup fails, the same steps undo whatever had already started. In development, nodemon restarts with `SIGTERM`, so restarts also shut down gracefully.
+
+### Health probes
+
+| Endpoint       | Purpose   | Behavior                                                                                                     |
+| -------------- | --------- | ------------------------------------------------------------------------------------------------------------ |
+| `GET /healthz` | Liveness  | 200 while the process serves HTTP; never checks dependencies                                                 |
+| `GET /readyz`  | Readiness | 200 only when started, not stopping, and MongoDB plus session storage answer a ping within 2s; otherwise 503 |
+
+Both probes run before auth and rate limiting, are excluded from access logs, and never expose error details.
+
+### Logging and tracing
+
+Logs are structured JSON from pino in production and readable output in development. Each request gets an `X-Request-Id`: a well-formed upstream ID is reused, otherwise one is generated. The ID is returned on the response, included in error bodies, and attached to every log line for that request through `req.log`. Access logs record the method, path, status, duration and shop. They don't record query strings or headers, which carry OAuth codes, HMACs and bearer tokens in Shopify flows. Shopify library logs go through the same logger.
+
+### HTTP hardening
+
+- **Timeouts**: `keepAliveTimeout` (65s) stays above typical load-balancer idle timeouts, and `headersTimeout` stays above that. `requestTimeout` is 30s. Shopify Admin API calls time out after 10s and retry throttled or failed calls with backoff. A timeout returns 504 and other upstream failures return 502.
+- **Headers**: Helmet security headers go on every response. HSTS is sent in production. Framing is limited to the merchant's shop and the Shopify admin through Shopify's per-shop `frame-ancestors` CSP. API responses get `default-src 'none'` and `Cache-Control: no-store`. `X-Powered-By` is removed.
+- **Request parsing**: query strings are parsed flat, so nested objects never reach handlers. JSON bodies are capped at 16 KB and parsed strictly. Writes must be JSON (`415` otherwise). Malformed JSON, oversized bodies and bad URL encoding return clear 4xx errors.
+- **Compression and caching**: responses are gzip-compressed. In production, fingerprinted assets are cached for a year and the HTML shell is never cached.
+- **Cross-origin access**: the API is same-origin and authenticates with bearer session tokens, not cookies, so CORS is deliberately not enabled and CSRF doesn't apply.
+
+### Rate limiting
+
+| Limiter    | Key                  | Default   |
+| ---------- | -------------------- | --------- |
+| API        | Shop                 | 120 / min |
+| API writes | Shop                 | 30 / min  |
+| OAuth      | Client IP (IPv6 /56) | 30 / min  |
+
+Counters are kept in memory, per instance. Responses include the standard `RateLimit` headers and `Retry-After`. If you run several instances, give each limiter a shared store (for example [`rate-limit-redis`](https://www.npmjs.com/package/rate-limit-redis)) in `web/middleware/rate-limit.js`.
+
+### Data and security
+
+- **Input validation**: strict Zod schemas reject unknown fields and non-string values, including NoSQL operator objects. Text is sanitized: HTML tags, control characters and bidi overrides are removed, and whitespace and Unicode are normalized.
+- **Resources come from Shopify**: product and collection IDs are checked against the shop through the Admin API, and titles and images come from Shopify, not from the client.
+- **Data isolation**: every query is scoped to the authenticated shop. Malformed or foreign IDs return `404`.
+- **Updates and limits**: updates use optimistic concurrency, so a conflicting edit returns `409`. Each shop can have up to 200 timers.
+- **Sessions**: Shopify sessions are stored in MongoDB (`shopify_sessions`). Indexes are added on `id` and `shop` because every authenticated request looks a session up.
+- **Webhooks**: they're verified by HMAC. The `shop/redact` webhook erases a shop's timers, and no customer data is stored.
+
+### Docker
+
+The `Dockerfile` builds in two stages:
+
+1. Production dependencies are installed and the frontend is built. Pass `--build-arg SHOPIFY_API_KEY=...`.
+2. The result is copied into a small runtime image. It runs as the unprivileged `node` user, with `tini` as PID 1 so `SIGTERM` reaches Node, and a `HEALTHCHECK` on `/healthz`.
+
+## Scripts
+
+Run from the repository root:
+
+| Command          | What it does                                    |
+| ---------------- | ----------------------------------------------- |
+| `npm run dev`    | Start the app with the Shopify CLI              |
+| `npm run lint`   | ESLint (flat config in `eslint.config.mjs`)     |
+| `npm run format` | Format with Prettier (`format:check` to verify) |
+| `npm test`       | Backend and frontend unit tests (Vitest)        |
+| `npm run check`  | Lint, format check and tests together           |
+
+Backend tests cover config, lifecycle, HTTP draining, the full app pipeline (probes, headers, limits, errors, the app shell) and the API. The API tests run against an in-memory MongoDB (`mongodb-memory-server`, which downloads a MongoDB binary on first run) with fake Shopify dependencies. Frontend tests use jsdom and Testing Library.
+
+### Notes on Polaris web components with React
+
+- Polaris is loaded from Shopify's CDN in `web/frontend/index.html`. Keep the script's major version in step with `@shopify/polaris-types`.
+- Component events are bound with lowercase props (`oninput`, `onchange`, `onhide`, `onnextpage`). React 19 attaches `on<event>` props on custom elements as direct listeners.
+- Responsive `@container` values need an `s-query-container` ancestor.
+
+---
+
+# Shopify App Template for Node (reference)
 
 This is a template for building a [Shopify app](https://shopify.dev/docs/apps/getting-started) using Node and React. It contains the basics for building a Shopify app.
 
@@ -25,7 +165,7 @@ This template combines a number of third party open-source tools:
 - [Express](https://expressjs.com/) builds the backend.
 - [Vite](https://vitejs.dev/) builds the [React](https://reactjs.org/) frontend.
 - [React Router](https://reactrouter.com/) is used for routing. We wrap this with file-based routing.
-- [React Query](https://react-query.tanstack.com/) queries the Admin API.
+- [TanStack Query](https://tanstack.com/query/latest) fetches and caches data from the app API.
 - [`i18next`](https://www.i18next.com/) and related libraries are used to internationalize the frontend.
   - [`react-i18next`](https://react.i18next.com/) is used for React-specific i18n functionality.
   - [`i18next-resources-to-backend`](https://github.com/i18next/i18next-resources-to-backend) is used to dynamically load app translations.
@@ -37,7 +177,7 @@ The following Shopify tools complement these third-party tools to ease app devel
 
 - [Shopify API library](https://github.com/Shopify/shopify-node-api) adds OAuth to the Express backend. This lets users install the app and grant scope permissions.
 - [App Bridge React](https://shopify.dev/docs/apps/tools/app-bridge/getting-started/using-react) adds [authentication to API requests](https://shopify.dev/docs/api/app-bridge-library/apis/resource-fetching) in the frontend and renders components outside of the App’s iFrame.
-- [Polaris React](https://polaris.shopify.com/) is a powerful design system and component library that helps developers build high quality, consistent experiences for Shopify merchants.
+- [Polaris web components](https://shopify.dev/docs/api/app-home/web-components) provide the design system and components, so the app looks native in the Shopify admin.
 - [File-based routing](https://github.com/Shopify/shopify-frontend-template-react/blob/main/Routes.jsx) makes creating new pages easier.
 - [`@shopify/i18next-shopify`](https://github.com/Shopify/i18next-shopify) is a plugin for [`i18next`](https://www.i18next.com/) that allows translation files to follow the same JSON schema used by Shopify [app extensions](https://shopify.dev/docs/apps/checkout/best-practices/localizing-ui-extensions#how-it-works) and [themes](https://shopify.dev/docs/themes/architecture/locales/storefront-locale-files#usage).
 
@@ -103,7 +243,7 @@ Open the URL generated in your console. Once you grant permission to the app, yo
 
 ### Application Storage
 
-This app stores session data in MongoDB using [`@shopify/shopify-app-session-storage-mongodb`](https://github.com/Shopify/shopify-app-js/tree/main/packages/apps/session-storage/shopify-app-session-storage-mongodb) (configured in `web/shopify.js`). Sessions are kept in the `shopify_sessions` collection.
+This app stores session data in MongoDB using [`@shopify/shopify-app-session-storage-mongodb`](https://github.com/Shopify/shopify-app-js/tree/main/packages/apps/session-storage/shopify-app-session-storage-mongodb) (configured in `web/shopify/session-storage.js`). Sessions are kept in the `shopify_sessions` collection. See [Server operations](#server-operations) for every configuration variable.
 
 Configuration is read from environment variables, loaded from `web/.env` in development (copy `web/.env.example`; `.env` is gitignored). Variables set by the Shopify CLI or your host take precedence:
 
@@ -167,9 +307,7 @@ We fixed this issue with v3.4.0 of the CLI, so after updating it, you can make t
 1. Change the definition `hmrConfig` object to be:
 
    ```js
-   const host = process.env.HOST
-     ? process.env.HOST.replace(/https?:\/\//, "")
-     : "localhost";
+   const host = process.env.HOST ? process.env.HOST.replace(/https?:\/\//, "") : "localhost";
 
    let hmrConfig;
    if (host === "localhost") {

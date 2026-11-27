@@ -1,7 +1,8 @@
-import { defineConfig } from "vite";
 import { dirname } from "path";
 import { fileURLToPath } from "url";
+
 import react from "@vitejs/plugin-react";
+import { defineConfig } from "vite";
 
 if (
   process.env.npm_lifecycle_event === "build" &&
@@ -10,7 +11,7 @@ if (
 ) {
   throw new Error(
     "\n\nThe frontend build will not work without an API key. Set the SHOPIFY_API_KEY environment variable when running the build command, for example:" +
-      "\n\nSHOPIFY_API_KEY=<your-api-key> npm run build\n"
+      "\n\nSHOPIFY_API_KEY=<your-api-key> npm run build\n",
   );
 }
 
@@ -23,9 +24,7 @@ const proxyOptions = {
   ws: false,
 };
 
-const host = process.env.HOST
-  ? process.env.HOST.replace(/https?:\/\//, "")
-  : "localhost";
+const host = process.env.HOST ? process.env.HOST.replace(/https?:\/\//, "") : "localhost";
 
 let hmrConfig;
 if (host === "localhost") {
@@ -38,7 +37,7 @@ if (host === "localhost") {
 } else {
   hmrConfig = {
     protocol: "wss",
-    host: host,
+    host,
     port: process.env.FRONTEND_PORT,
     clientPort: 443,
   };

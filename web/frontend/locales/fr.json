@@ -1,40 +1,182 @@
 {
-  "HomePage": {
-    "heading": "Bravo pour l’application Shopify que vous avez créée 🎉",
-    "learnMore": "Découvrez comment concevoir votre application dans <ShopifyTutorialLink>ce tutoriel Shopify</ShopifyTutorialLink> 📚",
-    "startPopulatingYourApp": "Vous souhaitez vous lancer ? Commencez à remplir votre application d’exemples de produits à afficher et tester dans votre boutique.",
-    "title": "Nom de l’application",
-    "trophyAltText": "Bravo pour l’application Shopify que vous avez créée",
-    "yourAppIsReadyToExplore": "Votre application est prête à être explorée ! Elle contient tout ce dont vous avez besoin pour vous lancer, y compris le <PolarisLink>système de design Polaris</PolarisLink>, la <AdminApiLink>Shopify Admin API</AdminApiLink> ainsi que la bibliothèque et les composants d’IU <AppBridgeLink>App Bridge</AppBridgeLink>."
+  "DeleteTimer": {
+    "body": "« {{name}} » ne sera plus affiché sur votre boutique. Cette action est irréversible.",
+    "cancel": "Annuler",
+    "confirm": "Supprimer le minuteur",
+    "heading": "Supprimer le minuteur ?",
+    "toast": "Minuteur supprimé"
   },
-  "NavigationMenu": {
-    "pageName": "Nom de la page"
+  "ExitIframe": {
+    "body": "Les applications ne peuvent utiliser /exitiframe que pour accéder à Shopify ou à l’application elle-même.",
+    "heading": "Redirection en dehors de Shopify"
   },
   "NotFound": {
-    "description": "Vérifiez l’URL et réessayez, ou utilisez la barre de recherche pour trouver ce qu’il vous faut.",
-    "heading": "Il n’y a aucune page à cette adresse"
+    "backToTimers": "Retour aux minuteurs",
+    "description": "Vérifiez l’URL et réessayez, ou revenez à vos minuteurs.",
+    "heading": "Il n’y a pas de page à cette adresse"
   },
-  "PageName": {
-    "body": "Corps",
-    "heading": "En-tête",
-    "primaryAction": "Action principale",
-    "secondaryAction": "Action secondaire",
-    "title": "Nom de la page"
+  "TargetPicker": {
+    "all": "Tous les produits",
+    "browse": "Parcourir",
+    "collections": "Collections spécifiques",
+    "label": "S’applique à",
+    "products": "Produits spécifiques",
+    "remove": "Retirer {{title}}",
+    "search": {
+      "collections": "Rechercher des collections",
+      "products": "Rechercher des produits"
+    },
+    "selected": {
+      "collections": {
+        "one": "{{count}} collection sélectionnée",
+        "other": "{{count}} collections sélectionnées"
+      },
+      "products": {
+        "one": "{{count}} produit sélectionné",
+        "other": "{{count}} produits sélectionnés"
+      }
+    }
   },
-  "ProductsCard": {
-    "description": "Les exemples de produits sont créés avec un titre et un prix par défaut. Vous pouvez les supprimer à tout moment.",
-    "errorCreatingProductsToast": "Une erreur est survenue lors de la création des produits",
-    "populateProductsButton": {
-      "one": "Remplir {{count}} produit",
-      "other": "Remplir {{count}} produits",
-      "many": "Remplir {{count}} produits"
+  "TimerForm": {
+    "cancel": "Annuler",
+    "color": {
+      "hex": "Couleur hexadécimale",
+      "label": "Couleur du minuteur"
     },
-    "productsCreatedToast": {
-      "one": "{{count}} produit créé !",
-      "other": "{{count}} produits créés !",
-      "many": "{{count}} produits créés !"
+    "create": "Créer le minuteur",
+    "createHeading": "Créer un minuteur",
+    "description": {
+      "details": "Affichée au-dessus du compte à rebours sur les pages produit.",
+      "label": "Description de la promotion",
+      "placeholder": "Saisissez les détails de la promotion"
     },
-    "title": "Compteur de produits",
-    "totalProductsHeading": "TOTAL DES PRODUITS"
+    "editHeading": "Modifier le minuteur",
+    "endDate": "Date de fin",
+    "endTime": "Heure de fin",
+    "errors": {
+      "collectionsRequired": "Sélectionnez au moins une collection.",
+      "colorInvalid": "Saisissez une couleur hexadécimale, par exemple #008060.",
+      "descriptionTooLong": "Utilisez {{max}} caractères au maximum.",
+      "endBeforeStart": "La fin doit être postérieure à la date et à l’heure de début.",
+      "endDateRequired": "Saisissez une date de fin.",
+      "endInPast": "La fin doit être dans le futur.",
+      "endTimeRequired": "Saisissez une heure de fin.",
+      "nameRequired": "Saisissez un nom de minuteur.",
+      "nameTooLong": "Utilisez {{max}} caractères au maximum.",
+      "productsRequired": "Sélectionnez au moins un produit.",
+      "startDateRequired": "Saisissez une date de début ou effacez l’heure de début.",
+      "startTimeRequired": "Saisissez une heure de début ou effacez la date de début.",
+      "timeInvalid": "Saisissez une heure comme 9:30 ou 21:30."
+    },
+    "fixErrors": {
+      "one": "Corrigez {{count}} erreur pour enregistrer ce minuteur",
+      "other": "Corrigez {{count}} erreurs pour enregistrer ce minuteur"
+    },
+    "genericError": "Impossible d’enregistrer ce minuteur. Réessayez.",
+    "name": {
+      "label": "Nom du minuteur",
+      "placeholder": "Saisissez le nom du minuteur"
+    },
+    "position": {
+      "label": "Position du minuteur",
+      "options": {
+        "bottom": "En bas",
+        "top": "En haut"
+      }
+    },
+    "preview": "Aperçu",
+    "save": "Enregistrer",
+    "scheduleHelp": "Les heures suivent le fuseau horaire de votre boutique : {{timeZone}}. Laissez le début vide pour démarrer immédiatement.",
+    "serverValidation": "Certains champs doivent être vérifiés",
+    "size": {
+      "label": "Taille du minuteur",
+      "options": {
+        "large": "Grande",
+        "medium": "Moyenne",
+        "small": "Petite"
+      }
+    },
+    "startDate": "Date de début",
+    "startTime": "Heure de début",
+    "timePlaceholder": "p. ex. {{example}}",
+    "toast": {
+      "created": "Minuteur créé",
+      "updated": "Minuteur enregistré"
+    },
+    "urgency": {
+      "details": "Attire l’attention sur le minuteur pendant sa dernière heure.",
+      "label": "Notification d’urgence",
+      "options": {
+        "color_pulse": "Pulsation de couleur",
+        "none": "Aucune",
+        "shake": "Secousse"
+      }
+    }
+  },
+  "TimerPreview": {
+    "days": "Jours",
+    "defaultMessage": "Fin de l’offre dans",
+    "hours": "H",
+    "label": "Aperçu du minuteur",
+    "minutes": "Min",
+    "seconds": "Sec"
+  },
+  "TimerTable": {
+    "actionsFor": "Actions pour {{name}}",
+    "columns": {
+      "actions": "Actions",
+      "appliesTo": "S’applique à",
+      "ends": "Fin",
+      "starts": "Début",
+      "status": "Statut",
+      "timer": "Minuteur"
+    },
+    "delete": "Supprimer",
+    "edit": "Modifier",
+    "label": "Minuteurs",
+    "noResults": {
+      "body": "Essayez de modifier la recherche ou les filtres.",
+      "clear": "Effacer la recherche et les filtres",
+      "heading": "Aucun minuteur trouvé"
+    },
+    "search": "Rechercher des minuteurs",
+    "sortBy": "Trier par",
+    "sortOptions": {
+      "created_desc": "Créés récemment",
+      "end_asc": "Date de fin (la plus proche d’abord)",
+      "name_asc": "Nom (A–Z)",
+      "name_desc": "Nom (Z–A)",
+      "start_asc": "Date de début (la plus ancienne d’abord)",
+      "start_desc": "Date de début (la plus récente d’abord)"
+    },
+    "statusFilter": "Statut",
+    "statusOptions": {
+      "active": "Actif",
+      "all": "Tous les statuts",
+      "expired": "Expiré",
+      "scheduled": "Programmé"
+    },
+    "target": {
+      "all": "Tous les produits",
+      "collections": {
+        "one": "{{count}} collection",
+        "other": "{{count}} collections"
+      },
+      "products": {
+        "one": "{{count}} produit",
+        "other": "{{count}} produits"
+      }
+    }
+  },
+  "TimersPage": {
+    "createTimer": "Créer un minuteur",
+    "emptyState": {
+      "body": "Créez un sentiment d’urgence pour vos promotions grâce aux comptes à rebours sur vos pages produit.",
+      "heading": "Créez votre premier compte à rebours"
+    },
+    "loadError": "Impossible de charger les minuteurs",
+    "retry": "Réessayer",
+    "subtitle": "Créez et gérez des comptes à rebours pour vos promotions.",
+    "title": "Compte à rebours"
   }
 }

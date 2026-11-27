@@ -1,38 +1,182 @@
 {
-  "HomePage": {
-    "heading": "Gute Arbeit beim Erstellen einer Shopify-App 🎉",
-    "learnMore": "Erhalte mehr Informationen zum Ausbau deiner App in <ShopifyTutorialLink>diesem Shopify-Tutorial</ShopifyTutorialLink> 📚",
-    "startPopulatingYourApp": "Bist du bereit? Stelle in deiner App einige Beispielprodukte bereit, um sie in deinem Shop anzuzeigen und zu testen.",
-    "title": "App-Name",
-    "trophyAltText": "Gute Arbeit beim Erstellen einer Shopify-App",
-    "yourAppIsReadyToExplore": "Deine App kann nun erkundet werden! Sie enthält alles, was du brauchst, um loszulegen: das <PolarisLink>Polaris Designsystem</PolarisLink>, die <AdminApiLink>Shopify Admin API</AdminApiLink> und die <AppBridgeLink>App Bridge</AppBridgeLink>-UI-Bibliothek sowie entsprechende Komponenten."
+  "DeleteTimer": {
+    "body": "„{{name}}“ wird nicht mehr in deinem Shop angezeigt. Das kann nicht rückgängig gemacht werden.",
+    "cancel": "Abbrechen",
+    "confirm": "Timer löschen",
+    "heading": "Timer löschen?",
+    "toast": "Timer gelöscht"
   },
-  "NavigationMenu": {
-    "pageName": "Seitenname"
+  "ExitIframe": {
+    "body": "Apps können /exitiframe nur verwenden, um Shopify oder die App selbst aufzurufen.",
+    "heading": "Weiterleitung außerhalb von Shopify"
   },
   "NotFound": {
-    "description": "Überprüfe die URL und versuche es erneut. Alternativ kannst du die Suchleiste verwenden, um zu finden, was du suchst.",
+    "backToTimers": "Zurück zu den Timern",
+    "description": "Überprüfe die URL und versuche es erneut oder kehre zu deinen Timern zurück.",
     "heading": "Unter dieser Adresse gibt es keine Seite"
   },
-  "PageName": {
-    "body": "Nachricht",
-    "heading": "Überschrift",
-    "primaryAction": "Primäre Aktion",
-    "secondaryAction": "Sekundäre Aktion",
-    "title": "Seitenname"
+  "TargetPicker": {
+    "all": "Alle Produkte",
+    "browse": "Durchsuchen",
+    "collections": "Bestimmte Kategorien",
+    "label": "Gilt für",
+    "products": "Bestimmte Produkte",
+    "remove": "{{title}} entfernen",
+    "search": {
+      "collections": "Kategorien suchen",
+      "products": "Produkte suchen"
+    },
+    "selected": {
+      "collections": {
+        "one": "{{count}} Kategorie ausgewählt",
+        "other": "{{count}} Kategorien ausgewählt"
+      },
+      "products": {
+        "one": "{{count}} Produkt ausgewählt",
+        "other": "{{count}} Produkte ausgewählt"
+      }
+    }
   },
-  "ProductsCard": {
-    "description": "Beispielprodukte werden mit einem Standardtitel und -preis erstellt. Du kannst sie jederzeit entfernen.",
-    "errorCreatingProductsToast": "Beim Erstellen von Produkten ist ein Fehler aufgetreten",
-    "populateProductsButton": {
-      "one": "{{count}} Produkt bereitstellen",
-      "other": "{{count}} Produkte bereitstellen"
+  "TimerForm": {
+    "cancel": "Abbrechen",
+    "color": {
+      "hex": "Hex-Farbe",
+      "label": "Timer-Farbe"
     },
-    "productsCreatedToast": {
-      "one": "{{count}} Produkt erstellt!",
-      "other": "{{count}} Produkte erstellt!"
+    "create": "Timer erstellen",
+    "createHeading": "Neuen Timer erstellen",
+    "description": {
+      "details": "Wird über dem Countdown auf Produktseiten angezeigt.",
+      "label": "Aktionsbeschreibung",
+      "placeholder": "Details zur Aktion eingeben"
     },
-    "title": "Produktzähler",
-    "totalProductsHeading": "PRODUKTE INSGESAMT"
+    "editHeading": "Timer bearbeiten",
+    "endDate": "Enddatum",
+    "endTime": "Endzeit",
+    "errors": {
+      "collectionsRequired": "Wähle mindestens eine Kategorie aus.",
+      "colorInvalid": "Gib eine Hex-Farbe wie #008060 ein.",
+      "descriptionTooLong": "Verwende höchstens {{max}} Zeichen.",
+      "endBeforeStart": "Das Ende muss nach dem Startdatum und der Startzeit liegen.",
+      "endDateRequired": "Gib ein Enddatum ein.",
+      "endInPast": "Das Ende muss in der Zukunft liegen.",
+      "endTimeRequired": "Gib eine Endzeit ein.",
+      "nameRequired": "Gib einen Namen für den Timer ein.",
+      "nameTooLong": "Verwende höchstens {{max}} Zeichen.",
+      "productsRequired": "Wähle mindestens ein Produkt aus.",
+      "startDateRequired": "Gib ein Startdatum ein oder lösche die Startzeit.",
+      "startTimeRequired": "Gib eine Startzeit ein oder lösche das Startdatum.",
+      "timeInvalid": "Gib eine Uhrzeit wie 9:30 oder 21:30 ein."
+    },
+    "fixErrors": {
+      "one": "Behebe {{count}} Fehler, um diesen Timer zu speichern",
+      "other": "Behebe {{count}} Fehler, um diesen Timer zu speichern"
+    },
+    "genericError": "Der Timer konnte nicht gespeichert werden. Versuche es erneut.",
+    "name": {
+      "label": "Name des Timers",
+      "placeholder": "Namen eingeben"
+    },
+    "position": {
+      "label": "Position des Timers",
+      "options": {
+        "bottom": "Unten",
+        "top": "Oben"
+      }
+    },
+    "preview": "Vorschau",
+    "save": "Speichern",
+    "scheduleHelp": "Die Zeiten beziehen sich auf die Zeitzone deines Shops: {{timeZone}}. Lass den Start leer, um sofort zu beginnen.",
+    "serverValidation": "Einige Felder müssen überprüft werden",
+    "size": {
+      "label": "Größe des Timers",
+      "options": {
+        "large": "Groß",
+        "medium": "Mittel",
+        "small": "Klein"
+      }
+    },
+    "startDate": "Startdatum",
+    "startTime": "Startzeit",
+    "timePlaceholder": "z. B. {{example}}",
+    "toast": {
+      "created": "Timer erstellt",
+      "updated": "Timer gespeichert"
+    },
+    "urgency": {
+      "details": "Lenkt in der letzten Stunde die Aufmerksamkeit auf den Timer.",
+      "label": "Dringlichkeitshinweis",
+      "options": {
+        "color_pulse": "Farbpuls",
+        "none": "Keiner",
+        "shake": "Wackeln"
+      }
+    }
+  },
+  "TimerPreview": {
+    "days": "Tage",
+    "defaultMessage": "Angebot endet in",
+    "hours": "Std",
+    "label": "Timer-Vorschau",
+    "minutes": "Min",
+    "seconds": "Sek"
+  },
+  "TimerTable": {
+    "actionsFor": "Aktionen für {{name}}",
+    "columns": {
+      "actions": "Aktionen",
+      "appliesTo": "Gilt für",
+      "ends": "Endet",
+      "starts": "Beginnt",
+      "status": "Status",
+      "timer": "Timer"
+    },
+    "delete": "Löschen",
+    "edit": "Bearbeiten",
+    "label": "Timer",
+    "noResults": {
+      "body": "Ändere die Suche oder die Filter.",
+      "clear": "Suche und Filter zurücksetzen",
+      "heading": "Keine Timer gefunden"
+    },
+    "search": "Timer suchen",
+    "sortBy": "Sortieren nach",
+    "sortOptions": {
+      "created_desc": "Zuletzt erstellt",
+      "end_asc": "Enddatum (früheste zuerst)",
+      "name_asc": "Name (A–Z)",
+      "name_desc": "Name (Z–A)",
+      "start_asc": "Startdatum (älteste zuerst)",
+      "start_desc": "Startdatum (neueste zuerst)"
+    },
+    "statusFilter": "Status",
+    "statusOptions": {
+      "active": "Aktiv",
+      "all": "Alle Status",
+      "expired": "Abgelaufen",
+      "scheduled": "Geplant"
+    },
+    "target": {
+      "all": "Alle Produkte",
+      "collections": {
+        "one": "{{count}} Kategorie",
+        "other": "{{count}} Kategorien"
+      },
+      "products": {
+        "one": "{{count}} Produkt",
+        "other": "{{count}} Produkte"
+      }
+    }
+  },
+  "TimersPage": {
+    "createTimer": "Timer erstellen",
+    "emptyState": {
+      "body": "Verleihe deinen Aktionen mit Countdown-Timern auf deinen Produktseiten mehr Dringlichkeit.",
+      "heading": "Erstelle deinen ersten Countdown-Timer"
+    },
+    "loadError": "Timer konnten nicht geladen werden",
+    "retry": "Erneut versuchen",
+    "subtitle": "Erstelle und verwalte Countdown-Timer für deine Aktionen.",
+    "title": "Countdown-Timer"
   }
 }

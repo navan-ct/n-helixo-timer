@@ -1,7 +1,7 @@
 # Learn more about configuring your app at https://shopify.dev/docs/apps/tools/cli/configuration
 
 client_id = "05263dec3dadf8a6635ec94ad270167c"
-name = "n-helixo-timer"
+name = "N Helixo Timer"
 application_url = "https://example.com"
 embedded = true
 
@@ -21,5 +21,4 @@ api_version = "2027-01"
   uri = "/api/webhooks"
 
 [build]
-include_config_on_deploy = true
 automatically_update_urls_on_dev = true

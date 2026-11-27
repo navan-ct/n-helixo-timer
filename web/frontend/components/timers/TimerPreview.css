@@ -1,0 +1,171 @@
+/* App-owned preview of the storefront timer. Polaris components can't be
+   styled from here (shadow DOM), so this only targets the preview's own markup. */
+
+.timer-preview {
+  margin: 0;
+  container-type: inline-size;
+}
+
+.timer-preview__page {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 10px;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  border-radius: 12px;
+  background: #f7f7f7;
+  overflow: hidden;
+}
+
+.timer-preview__bar {
+  --timer-color: #008060;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 4px 12px;
+  border-radius: 8px;
+  background: var(--timer-color);
+  text-align: center;
+  font-family: inherit;
+  line-height: 1.2;
+}
+
+.timer-preview__message {
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.timer-preview__clock {
+  display: inline-flex;
+  gap: 6px;
+  font-variant-numeric: tabular-nums;
+}
+
+.timer-preview__unit {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  min-width: 2.1em;
+}
+
+.timer-preview__value {
+  font-weight: 700;
+}
+
+.timer-preview__label {
+  font-size: 0.7em;
+  opacity: 0.85;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.timer-preview__bar--small {
+  padding: 6px 10px;
+  font-size: 11px;
+}
+
+.timer-preview__bar--medium {
+  padding: 9px 12px;
+  font-size: 13px;
+}
+
+.timer-preview__bar--large {
+  padding: 12px 14px;
+  font-size: 16px;
+}
+
+.timer-preview__product {
+  display: grid;
+  grid-template-columns: minmax(64px, 34%) 1fr;
+  gap: 10px;
+}
+
+.timer-preview__image {
+  aspect-ratio: 1;
+  max-block-size: 120px;
+  border-radius: 8px;
+  background: linear-gradient(135deg, #e3e3e3, #d1d1d1);
+}
+
+.timer-preview__details {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  padding-top: 4px;
+}
+
+.timer-preview__line {
+  height: 7px;
+  border-radius: 4px;
+  background: #e1e1e1;
+}
+
+.timer-preview__line--title {
+  width: 80%;
+  height: 10px;
+  background: #cfcfcf;
+}
+
+.timer-preview__line--price {
+  width: 35%;
+}
+
+.timer-preview__line--short {
+  width: 60%;
+}
+
+.timer-preview__button {
+  width: 70%;
+  height: 16px;
+  margin-top: 4px;
+  border-radius: 6px;
+  background: #303030;
+}
+
+/* Urgency effects. The storefront plays these near the end of the countdown;
+   the preview loops them so merchants can see what they look like. */
+.timer-preview__bar--color_pulse {
+  animation: timer-preview-pulse 1.6s ease-in-out infinite;
+}
+
+.timer-preview__bar--shake {
+  animation: timer-preview-shake 2.4s ease-in-out infinite;
+}
+
+@keyframes timer-preview-pulse {
+  0%,
+  100% {
+    background: var(--timer-color);
+    box-shadow: 0 0 0 0 transparent;
+  }
+  50% {
+    background: color-mix(in srgb, var(--timer-color) 72%, #ffffff);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--timer-color) 30%, transparent);
+  }
+}
+
+@keyframes timer-preview-shake {
+  0%,
+  70%,
+  100% {
+    transform: translateX(0);
+  }
+  74%,
+  82%,
+  90% {
+    transform: translateX(-3px);
+  }
+  78%,
+  86%,
+  94% {
+    transform: translateX(3px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .timer-preview__bar--color_pulse,
+  .timer-preview__bar--shake {
+    animation: none;
+  }
+}
