@@ -3,21 +3,22 @@
 
 .timer-preview {
   margin: 0;
-  container-type: inline-size;
 }
 
+/* The timer, then a sketch of the product information it sits with. */
 .timer-preview__page {
   display: flex;
   flex-direction: column;
-  gap: 10px;
-  padding: 10px;
-  border: 1px solid rgba(0, 0, 0, 0.08);
+  gap: 12px;
+  padding: 12px;
+  border: 1px solid rgba(0, 0, 0, 0.06);
   border-radius: 12px;
-  background: #f7f7f7;
+  background: #f6f6f7;
   overflow: hidden;
 }
 
-/* The countdown mirrors the storefront widget (widget/src/ui/styles.css). */
+/* The countdown is a scaled-down copy of the storefront widget
+   (widget/src/ui/styles.css); keep the two in step. */
 .timer-preview__bar {
   --timer-color: #008060;
   --timer-text: #ffffff;
@@ -62,6 +63,8 @@
 }
 
 .timer-preview__value {
+  display: inline-flex;
+  justify-content: center;
   min-width: 1.9em;
   padding: 0.12em 0.28em;
   border-radius: 0.3em;
@@ -69,6 +72,7 @@
   font-size: 1.6em;
   font-weight: 700;
   line-height: 1.15;
+  transition: opacity 0.4s ease;
 }
 
 .timer-preview__separator {
@@ -100,6 +104,36 @@
   height: 100%;
   background: color-mix(in srgb, var(--timer-text) 70%, transparent);
   transform-origin: left center;
+  transition: transform 1s linear;
+}
+
+/* Rolling digits. The outgoing glyph sits on top of the incoming one. */
+.timer-preview__digit {
+  position: relative;
+  display: inline-block;
+  overflow: hidden;
+  padding-block: 0.04em;
+  margin-block: -0.04em;
+}
+
+.timer-preview__glyph {
+  display: block;
+}
+
+.timer-preview__glyph--in {
+  animation: timer-preview-digit-in 0.42s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+.timer-preview__glyph--out {
+  position: absolute;
+  inset: 0.04em 0;
+  animation: timer-preview-digit-out 0.42s cubic-bezier(0.2, 0.8, 0.2, 1) forwards;
+}
+
+/* Ended: digits at zero, dimmed. */
+.timer-preview__bar--ended .timer-preview__value,
+.timer-preview__bar--ended .timer-preview__separator {
+  opacity: 0.45;
 }
 
 .timer-preview__bar--small {
@@ -114,97 +148,114 @@
   font-size: 15px;
 }
 
-.timer-preview__product {
-  display: grid;
-  grid-template-columns: minmax(64px, 34%) 1fr;
-  gap: 10px;
-}
-
-.timer-preview__image {
-  aspect-ratio: 1;
-  max-block-size: 120px;
-  border-radius: 8px;
-  background: linear-gradient(135deg, #e3e3e3, #d1d1d1);
-}
-
 .timer-preview__details {
   display: flex;
   flex-direction: column;
-  gap: 7px;
-  padding-top: 4px;
+  gap: 6px;
 }
 
 .timer-preview__line {
-  height: 7px;
-  border-radius: 4px;
-  background: #e1e1e1;
+  height: 6px;
+  border-radius: 3px;
+  background: #e3e3e3;
 }
 
 .timer-preview__line--title {
-  width: 80%;
-  height: 10px;
-  background: #cfcfcf;
+  width: 70%;
+  height: 9px;
+  border-radius: 5px;
+  background: #d2d2d2;
 }
 
 .timer-preview__line--price {
-  width: 35%;
-}
-
-.timer-preview__line--short {
-  width: 60%;
+  width: 30%;
+  height: 7px;
+  margin-bottom: 4px;
+  background: #dcdcdc;
 }
 
 .timer-preview__button {
-  width: 70%;
-  height: 16px;
-  margin-top: 4px;
+  height: 18px;
   border-radius: 6px;
   background: #303030;
 }
 
-/* Urgency effects. The storefront plays these near the end of the countdown;
-   the preview loops them so merchants can see what they look like. */
+/* Urgency effects, as on the storefront. The storefront plays them during the
+   final hour; the preview loops them so merchants can see what they look like. */
 .timer-preview__bar--color_pulse {
   animation: timer-preview-pulse 1.6s ease-in-out infinite;
 }
 
 .timer-preview__bar--shake {
-  animation: timer-preview-shake 2.4s ease-in-out infinite;
+  animation: timer-preview-shake 4s ease-in-out infinite;
+}
+
+@keyframes timer-preview-digit-in {
+  from {
+    opacity: 0;
+    transform: translateY(65%);
+  }
+}
+
+@keyframes timer-preview-digit-out {
+  to {
+    opacity: 0;
+    transform: translateY(-65%);
+  }
 }
 
 @keyframes timer-preview-pulse {
   0%,
   100% {
-    background: var(--timer-color);
-    box-shadow: 0 0 0 0 transparent;
+    background-color: var(--timer-color);
+    box-shadow: 0 0 0 0 color-mix(in srgb, var(--timer-color) 45%, transparent);
   }
   50% {
-    background: color-mix(in srgb, var(--timer-color) 78%, #ffffff);
-    box-shadow: 0 0 0 4px color-mix(in srgb, var(--timer-color) 25%, transparent);
+    background-color: color-mix(in srgb, var(--timer-color) 78%, #ffffff);
+    box-shadow: 0 0 0 5px color-mix(in srgb, var(--timer-color) 0%, transparent);
   }
 }
 
 @keyframes timer-preview-shake {
   0%,
-  70%,
+  12%,
   100% {
     transform: translateX(0);
   }
-  74%,
-  82%,
-  90% {
-    transform: translateX(-3px);
+  2%,
+  6%,
+  10% {
+    transform: translateX(-3px) rotate(-0.4deg);
   }
-  78%,
-  86%,
-  94% {
-    transform: translateX(3px);
+  4%,
+  8% {
+    transform: translateX(3px) rotate(0.4deg);
+  }
+}
+
+@keyframes timer-preview-fade {
+  from {
+    opacity: 0;
   }
 }
 
 @media (prefers-reduced-motion: reduce) {
+  .timer-preview__glyph--in {
+    animation: timer-preview-fade 0.2s ease;
+  }
+
+  .timer-preview__glyph--out {
+    display: none;
+  }
+
   .timer-preview__bar--color_pulse,
   .timer-preview__bar--shake {
     animation: none;
+    outline: 2px solid var(--timer-text);
+    outline-offset: -5px;
+  }
+
+  .timer-preview__progress > span {
+    transition: none;
   }
 }

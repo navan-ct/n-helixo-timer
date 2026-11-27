@@ -32,7 +32,7 @@ export default function HomePage() {
           <s-grid
             gridTemplateColumns="@container (inline-size > 640px) 1fr 300px, 1fr"
             gap="large"
-            alignItems="center"
+            alignItems="start"
           >
             <s-stack gap="base">
               <s-stack gap="small-200">
@@ -53,7 +53,7 @@ export default function HomePage() {
                 </s-button>
               </s-stack>
             </s-stack>
-            <TimerPreview color="#008060" size="small" position="top" urgency="none" />
+            <TimerPreview color="#008060" size="small" urgency="none" />
           </s-grid>
         </s-query-container>
       </s-section>

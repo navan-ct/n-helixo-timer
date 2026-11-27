@@ -92,7 +92,6 @@ describe("GET /api/storefront/timers", () => {
       endsAt: at(2 * HOUR),
       color: "#b98900",
       size: "large",
-      position: "bottom",
       urgency: "shake",
     });
 
@@ -110,7 +109,6 @@ describe("GET /api/storefront/timers", () => {
           message: "Winter sale ends soon",
           color: "#b98900",
           size: "large",
-          position: "bottom",
           urgency: "shake",
         },
       ],

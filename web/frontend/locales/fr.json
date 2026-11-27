@@ -91,13 +91,6 @@
       "label": "Nom du minuteur",
       "placeholder": "Saisissez le nom du minuteur"
     },
-    "position": {
-      "label": "Position du minuteur",
-      "options": {
-        "bottom": "En bas",
-        "top": "En haut"
-      }
-    },
     "preview": "Aperçu",
     "save": "Enregistrer",
     "scheduleHelp": "Les heures suivent le fuseau horaire de votre boutique : {{timeZone}}. Laissez le début vide pour démarrer immédiatement.",
@@ -118,7 +111,6 @@
       "updated": "Minuteur enregistré"
     },
     "urgency": {
-      "details": "Attire l’attention sur le minuteur pendant sa dernière heure.",
       "label": "Notification d’urgence",
       "options": {
         "color_pulse": "Pulsation de couleur",
@@ -130,6 +122,7 @@
   "TimerPreview": {
     "days": "Jours",
     "defaultMessage": "Fin de l’offre dans",
+    "ended": "Cette offre est terminée",
     "hours": "H",
     "label": "Aperçu du minuteur",
     "minutes": "Min",
@@ -189,6 +182,7 @@
       "heading": "Créez votre premier compte à rebours"
     },
     "loadError": "Impossible de charger les minuteurs",
+    "loading": "Chargement des minuteurs",
     "retry": "Réessayer",
     "subtitle": "Créez et gérez des comptes à rebours pour vos promotions.",
     "title": "Comptes à rebours"

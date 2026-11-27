@@ -91,13 +91,6 @@
       "label": "Name des Timers",
       "placeholder": "Namen eingeben"
     },
-    "position": {
-      "label": "Position des Timers",
-      "options": {
-        "bottom": "Unten",
-        "top": "Oben"
-      }
-    },
     "preview": "Vorschau",
     "save": "Speichern",
     "scheduleHelp": "Die Zeiten beziehen sich auf die Zeitzone deines Shops: {{timeZone}}. Lass den Start leer, um sofort zu beginnen.",
@@ -118,7 +111,6 @@
       "updated": "Timer gespeichert"
     },
     "urgency": {
-      "details": "Lenkt in der letzten Stunde die Aufmerksamkeit auf den Timer.",
       "label": "Dringlichkeitshinweis",
       "options": {
         "color_pulse": "Farbpuls",
@@ -130,6 +122,7 @@
   "TimerPreview": {
     "days": "Tage",
     "defaultMessage": "Angebot endet in",
+    "ended": "Dieses Angebot ist abgelaufen",
     "hours": "Std",
     "label": "Timer-Vorschau",
     "minutes": "Min",
@@ -189,6 +182,7 @@
       "heading": "Erstelle deinen ersten Countdown-Timer"
     },
     "loadError": "Timer konnten nicht geladen werden",
+    "loading": "Timer werden geladen",
     "retry": "Erneut versuchen",
     "subtitle": "Erstelle und verwalte Countdown-Timer für deine Aktionen.",
     "title": "Countdown-Timer"

@@ -48,7 +48,6 @@ export function toTimerResponse(timer, now) {
     },
     color: timer.color,
     size: timer.size,
-    position: timer.position,
     urgency: timer.urgency,
     target: {
       type: timer.target.type,
@@ -118,7 +117,6 @@ export function createTimerService({
       timezone,
       color: input.color,
       size: input.size,
-      position: input.position,
       urgency: input.urgency,
       target: { type: input.target.type, resources },
     };

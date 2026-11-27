@@ -13,7 +13,6 @@ import {
 import {
   HEX_COLOR,
   TIMER_LIMITS,
-  TIMER_POSITIONS,
   TIMER_SIZES,
   URGENCY_EFFECTS,
   createEmptyForm,
@@ -172,6 +171,11 @@ function TimerForm({ timer, timeZone, onClose }) {
     clientErrors.endDate || clientErrors.endTime
       ? null
       : zonedWallTimeToEpoch(form.endDate, form.endTime, timeZone);
+  // A blank start means "now", which the preview assumes when this is null.
+  const previewStartsAt =
+    !form.startDate || clientErrors.startDate || clientErrors.startTime
+      ? null
+      : zonedWallTimeToEpoch(form.startDate, form.startTime, timeZone);
   const timePlaceholder = t("TimerForm.timePlaceholder", {
     example: formatTimeOfDay("09:00", locale),
   });
@@ -306,15 +310,19 @@ function TimerForm({ timer, timeZone, onClose }) {
                 <TimerPreview
                   color={form.color}
                   size={form.size}
-                  position={form.position}
                   urgency={form.urgency}
                   description={form.description}
+                  startsAt={previewStartsAt}
                   endsAt={previewEndsAt}
                 />
               </s-stack>
             </s-grid>
 
-            <s-grid gridTemplateColumns="@container (inline-size > 400px) 1fr 1fr, 1fr" gap="base">
+            <s-grid
+              gridTemplateColumns="@container (inline-size > 400px) 1fr 1fr, 1fr"
+              gap="base"
+              alignItems="start"
+            >
               <s-select
                 label={t("TimerForm.size.label")}
                 value={form.size}
@@ -327,30 +335,17 @@ function TimerForm({ timer, timeZone, onClose }) {
                 ))}
               </s-select>
               <s-select
-                label={t("TimerForm.position.label")}
-                value={form.position}
-                onchange={(event) => update("position", event.currentTarget.value)}
+                label={t("TimerForm.urgency.label")}
+                value={form.urgency}
+                onchange={(event) => update("urgency", event.currentTarget.value)}
               >
-                {TIMER_POSITIONS.map((position) => (
-                  <s-option key={position} value={position}>
-                    {t(`TimerForm.position.options.${position}`)}
+                {URGENCY_EFFECTS.map((effect) => (
+                  <s-option key={effect} value={effect}>
+                    {t(`TimerForm.urgency.options.${effect}`)}
                   </s-option>
                 ))}
               </s-select>
             </s-grid>
-
-            <s-select
-              label={t("TimerForm.urgency.label")}
-              details={t("TimerForm.urgency.details")}
-              value={form.urgency}
-              onchange={(event) => update("urgency", event.currentTarget.value)}
-            >
-              {URGENCY_EFFECTS.map((effect) => (
-                <s-option key={effect} value={effect}>
-                  {t(`TimerForm.urgency.options.${effect}`)}
-                </s-option>
-              ))}
-            </s-select>
 
             {/* Lets Enter in a single-line field submit the form. */}
             <button type="submit" hidden aria-hidden="true" tabIndex={-1} />

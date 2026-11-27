@@ -22,7 +22,7 @@
     "createTimer": "Create countdown timer"
   },
   "NavigationMenu": {
-    "countdownTimers": "Countdown timers"
+    "countdownTimers": "Countdown Timers"
   },
   "NotFound": {
     "description": "Check the URL and try again, or go to the app’s home page.",
@@ -91,13 +91,6 @@
       "label": "Timer name",
       "placeholder": "Enter timer name"
     },
-    "position": {
-      "label": "Timer position",
-      "options": {
-        "bottom": "Bottom",
-        "top": "Top"
-      }
-    },
     "preview": "Preview",
     "save": "Save",
     "scheduleHelp": "Times are in your store’s time zone: {{timeZone}}. Leave the start empty to start right away.",
@@ -118,7 +111,6 @@
       "updated": "Timer saved"
     },
     "urgency": {
-      "details": "Draws attention to the timer during its final hour.",
       "label": "Urgency notification",
       "options": {
         "color_pulse": "Color pulse",
@@ -130,6 +122,7 @@
   "TimerPreview": {
     "days": "Days",
     "defaultMessage": "Sale ends in",
+    "ended": "This offer has ended",
     "hours": "Hrs",
     "label": "Timer preview",
     "minutes": "Min",
@@ -189,8 +182,9 @@
       "heading": "Create your first countdown timer"
     },
     "loadError": "Timers couldn’t be loaded",
+    "loading": "Loading timers",
     "retry": "Try again",
     "subtitle": "Create and manage countdown timers for your promotions.",
-    "title": "Countdown timers"
+    "title": "Countdown Timers"
   }
 }

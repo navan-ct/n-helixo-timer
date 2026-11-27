@@ -21,7 +21,6 @@ function apiTimer(overrides = {}) {
     },
     color: "#008060",
     size: "medium",
-    position: "top",
     urgency: "color_pulse",
     target: { type: "products", resources: [{ id: "p1", title: "Snowboard" }] },
     status: "scheduled",
@@ -55,6 +54,37 @@ describe("TimersPage", () => {
     expect(screen.getByText("1 product")).toBeInTheDocument();
     expect(screen.getByText("Nov 29, 2026, 12:00 AM")).toBeInTheDocument();
     expect(screen.getByText("Nov 30, 2026, 11:59 PM")).toBeInTheDocument();
+  });
+
+  it("shows a spinner, not an empty table, until the first load finishes", async () => {
+    let respond;
+    mockFetch(
+      () =>
+        new Promise((resolve) => {
+          respond = resolve;
+        }),
+    );
+    const { container } = renderWithProviders(<TimersPage />);
+
+    const spinner = container.querySelector("s-spinner");
+    expect(spinner).toHaveAttribute("accessibilityLabel", "Loading timers");
+    expect(container.querySelector("s-table")).toBeNull();
+    expect(container.querySelector("s-empty-state")).toBeNull();
+
+    await act(async () => respond([200, listResponse([apiTimer()])]));
+
+    expect(await screen.findByText("Black Friday Sale")).toBeInTheDocument();
+    expect(container.querySelector("s-spinner")).toBeNull();
+  });
+
+  it("goes straight from the spinner to the empty state when there are no timers", async () => {
+    mockFetch(() => [200, listResponse([])]);
+    const { container } = renderWithProviders(<TimersPage />);
+    expect(container.querySelector("s-spinner")).not.toBeNull();
+
+    await waitFor(() => expect(container.querySelector("s-empty-state")).not.toBeNull());
+    expect(container.querySelector("s-spinner")).toBeNull();
+    expect(container.querySelector("s-table")).toBeNull();
   });
 
   it("shows an empty state before any timers exist", async () => {

@@ -8,7 +8,6 @@ export const TIMER_LIMITS = Object.freeze({
 });
 
 export const TIMER_SIZES = ["small", "medium", "large"];
-export const TIMER_POSITIONS = ["top", "bottom"];
 export const URGENCY_EFFECTS = ["color_pulse", "shake", "none"];
 export const TARGET_TYPES = ["all", "products", "collections"];
 
@@ -30,7 +29,6 @@ export function createEmptyForm() {
     endTime: "",
     color: "#008060",
     size: "medium",
-    position: "top",
     urgency: "color_pulse",
     targetType: "all",
     /** @type {TargetResource[]} */
@@ -49,7 +47,6 @@ export function formFromTimer(timer, locale) {
     endTime: formatTimeOfDay(timer.schedule.endTime, locale),
     color: timer.color,
     size: timer.size,
-    position: timer.position,
     urgency: timer.urgency,
     targetType: timer.target.type,
     resources: timer.target.resources,
@@ -67,7 +64,6 @@ export function toTimerPayload(form) {
     endTime: parseTimeInput(form.endTime),
     color: form.color.toLowerCase(),
     size: form.size,
-    position: form.position,
     urgency: form.urgency,
     target: {
       type: form.targetType,

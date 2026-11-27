@@ -69,7 +69,18 @@ export default function TimersPage() {
           </s-banner>
         )}
 
-        {hasNoTimers ? (
+        {isPending ? (
+          // First load: a spinner until we know whether to show the table or the
+          // empty state, so neither flashes in and gets replaced. Polaris has no
+          // skeleton components; a spinner is its loading pattern.
+          <s-section accessibilityLabel={t("TimersPage.loading")}>
+            <s-box paddingBlock="large-500">
+              <s-stack alignItems="center">
+                <s-spinner size="large" accessibilityLabel={t("TimersPage.loading")} />
+              </s-stack>
+            </s-box>
+          </s-section>
+        ) : hasNoTimers ? (
           <s-section accessibilityLabel={t("TimersPage.emptyState.heading")}>
             <s-empty-state heading={t("TimersPage.emptyState.heading")}>
               <s-box slot="graphic" maxInlineSize="200px">

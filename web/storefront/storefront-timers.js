@@ -24,7 +24,6 @@ const PROJECTION = {
   endsAt: 1,
   color: 1,
   size: 1,
-  position: 1,
   urgency: 1,
   "target.type": 1,
   "target.resources.id": 1,
@@ -44,7 +43,6 @@ function toCachedTimer(doc) {
     createdAt: doc.createdAt?.getTime() ?? 0,
     color: doc.color,
     size: doc.size,
-    position: doc.position,
     urgency: doc.urgency,
     targetType: doc.target.type,
     resourceIds: new Set(doc.target.resources.map((resource) => resource.id)),
@@ -76,7 +74,6 @@ function toStorefrontTimer(timer) {
     message: timer.message,
     color: timer.color,
     size: timer.size,
-    position: timer.position,
     urgency: timer.urgency,
   };
 }

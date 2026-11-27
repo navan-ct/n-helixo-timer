@@ -1,12 +1,6 @@
 import mongoose from "mongoose";
 
-import {
-  TARGET_TYPES,
-  TIMER_LIMITS,
-  TIMER_POSITIONS,
-  TIMER_SIZES,
-  URGENCY_EFFECTS,
-} from "./timer.constants.js";
+import { TARGET_TYPES, TIMER_LIMITS, TIMER_SIZES, URGENCY_EFFECTS } from "./timer.constants.js";
 
 const { Schema } = mongoose;
 
@@ -41,7 +35,6 @@ const timerSchema = new Schema(
     timezone: { type: String, required: true },
     color: { type: String, required: true, match: /^#[0-9a-f]{6}$/ },
     size: { type: String, enum: TIMER_SIZES, required: true },
-    position: { type: String, enum: TIMER_POSITIONS, required: true },
     urgency: { type: String, enum: URGENCY_EFFECTS, required: true },
     target: { type: targetSchema, required: true },
   },

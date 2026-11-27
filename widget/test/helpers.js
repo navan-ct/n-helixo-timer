@@ -14,7 +14,6 @@ export function apiTimer(overrides = {}) {
     message: "Winter sale ends in",
     color: "#008060",
     size: "medium",
-    position: "top",
     urgency: "color_pulse",
     ...overrides,
   };

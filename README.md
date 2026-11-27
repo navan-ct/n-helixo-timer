@@ -1,6 +1,6 @@
 # N Helixo Timer
 
-A Shopify embedded app for creating countdown timers that show on product pages. Merchants schedule a timer in the store's time zone, choose where it appears (all products, or specific products or collections chosen with the Shopify Resource Picker), and style it with a color, size, position and urgency effect. A live preview shows the result. A theme app extension block shows the timer to shoppers.
+A Shopify embedded app for creating countdown timers that show on product pages. Merchants schedule a timer in the store's time zone, choose where it appears (all products, or specific products or collections chosen with the Shopify Resource Picker), and style it with a color, size and urgency effect. A live preview shows the result. A theme app extension block shows the timer to shoppers.
 
 ## Features
 
@@ -9,7 +9,7 @@ A Shopify embedded app for creating countdown timers that show on product pages.
 - **Create and edit modal** (`web/frontend/components/timers/TimerFormModal.jsx`):
   - Name, schedule and description.
   - Targeting with the App Bridge Resource Picker.
-  - Color picker with a live storefront preview, plus size, position and urgency settings.
+  - Color picker, size and urgency settings, with a live preview that mirrors the storefront widget.
   - Inline validation that mirrors the server's rules.
 - **Time zones**: dates and times are entered in the shop's IANA time zone (read from the Admin API) and stored as UTC instants. A blank start means "start now".
 - **Translations**: English, German and French (`web/frontend/locales`, `extensions/timer-widget/locales`).

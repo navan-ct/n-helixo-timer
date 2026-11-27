@@ -14,7 +14,6 @@ export const TIMER_LIMITS = Object.freeze({
 });
 
 export const TIMER_SIZES = Object.freeze(["small", "medium", "large"]);
-export const TIMER_POSITIONS = Object.freeze(["top", "bottom"]);
 export const URGENCY_EFFECTS = Object.freeze(["color_pulse", "shake", "none"]);
 export const TARGET_TYPES = Object.freeze(["all", "products", "collections"]);
 export const TIMER_STATUSES = Object.freeze(["active", "scheduled", "expired"]);
@@ -22,7 +21,6 @@ export const TIMER_STATUSES = Object.freeze(["active", "scheduled", "expired"]);
 export const TIMER_DEFAULTS = Object.freeze({
   color: "#008060",
   size: "medium",
-  position: "top",
   urgency: "color_pulse",
 });
 
