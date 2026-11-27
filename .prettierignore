@@ -6,3 +6,5 @@ package-lock.json
 web/frontend/assets
 *.md
 .vscode
+# Built from widget/
+extensions/timer-widget/assets

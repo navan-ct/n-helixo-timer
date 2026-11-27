@@ -1,0 +1,7 @@
+# Builds the storefront widget into the theme app extension's assets
+# (extensions/timer-widget/assets). `shopify app dev` keeps it rebuilding on change.
+roles = ["background"]
+
+[commands]
+dev = "npm run dev"
+build = "npm run build"

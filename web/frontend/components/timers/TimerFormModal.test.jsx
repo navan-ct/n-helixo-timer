@@ -95,7 +95,6 @@ describe("TimerFormModal", () => {
       endTime: "23:59",
       color: "#008060",
       size: "medium",
-      position: "top",
       urgency: "color_pulse",
       target: { type: "all", resourceIds: [] },
     });
@@ -207,7 +206,6 @@ describe("TimerFormModal", () => {
       },
       color: "#ff6600",
       size: "large",
-      position: "bottom",
       urgency: "shake",
       target: { type: "all", resources: [] },
     };
@@ -230,8 +228,8 @@ describe("TimerFormModal", () => {
       startTime: "09:00",
       endTime: "18:00",
       size: "large",
-      position: "bottom",
       urgency: "shake",
     });
+    expect(JSON.parse(init.body)).not.toHaveProperty("position");
   });
 });

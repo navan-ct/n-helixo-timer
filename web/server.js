@@ -2,6 +2,7 @@ import { setTimeout as delay } from "node:timers/promises";
 
 import { createApp } from "./app.js";
 import { loadConfig } from "./config.js";
+import { runMigrations } from "./db/migrations.js";
 import {
   connectDatabase,
   disconnectDatabase,
@@ -14,11 +15,12 @@ import { createLogger } from "./lib/logger.js";
 import { createShopifyAdminApi } from "./shopify/admin-api.js";
 import { createSessionStorage } from "./shopify/session-storage.js";
 import { createShopify } from "./shopify.js";
+import { createStorefrontTimers } from "./storefront/storefront-timers.js";
 import { Timer } from "./timers/timer.model.js";
 import { createTimerService } from "./timers/timer.service.js";
 
 /**
- * Boots the server: validate config → connect MongoDB → open session storage →
+ * Boots the server: validate config → connect MongoDB (indexes, migrations) → open session storage →
  * build the app → listen. Each resource registers its cleanup as it starts, so
  * a failure at any step (or a later SIGTERM) unwinds exactly what was started.
  */
@@ -40,6 +42,7 @@ export async function startServer({ env = process.env } = {}) {
     await connectDatabase({ ...config.mongo, logger });
     lifecycle.onShutdown("mongodb", disconnectDatabase);
     await syncModelIndexes([Timer]);
+    await runMigrations({ logger });
 
     const sessions = await createSessionStorage({
       uri: config.mongo.uri,
@@ -55,13 +58,19 @@ export async function startServer({ env = process.env } = {}) {
       timeoutMs: config.shopify.apiTimeoutMs,
       retries: config.shopify.apiRetries,
     });
-    const timerService = createTimerService({ Timer, adminApi });
+    const storefrontTimers = createStorefrontTimers({ Timer });
+    const timerService = createTimerService({
+      Timer,
+      adminApi,
+      onChange: (shop) => storefrontTimers.invalidate(shop),
+    });
 
     const app = createApp({
       config,
       logger,
       shopify,
       timerService,
+      storefrontTimers,
       lifecycle,
       readinessChecks: { database: () => pingDatabase(), sessionStorage: sessions.ping },
     });

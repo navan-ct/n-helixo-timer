@@ -19,7 +19,9 @@ const SHOPIFY_API_TIMEOUT_MS = 10_000;
 const SHOPIFY_API_RETRIES = 2;
 const MONGODB_MAX_POOL_SIZE = 20;
 const MONGODB_SERVER_SELECTION_TIMEOUT_MS = 10_000;
-const RATE_LIMITS = { windowMs: 60_000, max: 120, writeMax: 30, authMax: 30 };
+// The storefront widget polls about once a minute per open tab, plus one request
+// per page view when its cache is cold.
+const RATE_LIMITS = { windowMs: 60_000, max: 120, writeMax: 30, authMax: 30, storefrontMax: 120 };
 
 const NODE_ENVS = ["development", "test", "production"];
 const LOG_LEVELS = ["fatal", "error", "warn", "info", "debug", "trace", "silent"];

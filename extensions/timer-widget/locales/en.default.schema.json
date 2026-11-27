@@ -1,0 +1,25 @@
+{
+  "blocks": {
+    "timer": {
+      "name": "Timer",
+      "settings": {
+        "info": {
+          "content": "Shows the timer that applies to this product. Create and schedule timers in the app."
+        },
+        "alignment": {
+          "label": "Alignment",
+          "options": {
+            "start": "Left",
+            "center": "Center"
+          }
+        },
+        "space_top": {
+          "label": "Top spacing"
+        },
+        "space_bottom": {
+          "label": "Bottom spacing"
+        }
+      }
+    }
+  }
+}

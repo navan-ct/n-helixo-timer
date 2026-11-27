@@ -48,7 +48,6 @@ export function toTimerResponse(timer, now) {
     },
     color: timer.color,
     size: timer.size,
-    position: timer.position,
     urgency: timer.urgency,
     target: {
       type: timer.target.type,
@@ -74,9 +73,17 @@ export function toTimerResponse(timer, now) {
  *   Timer: import("mongoose").Model<any>,
  *   adminApi: ReturnType<typeof import("../shopify/admin-api.js").createShopifyAdminApi>,
  *   now?: () => Date,
+ *   onChange?: (shop: string) => void,
  * }} deps
+ *   `onChange` runs after a shop's timers are created, updated or deleted (the
+ *   storefront read model uses it to drop its cache).
  */
-export function createTimerService({ Timer, adminApi, now = () => new Date() }) {
+export function createTimerService({
+  Timer,
+  adminApi,
+  now = () => new Date(),
+  onChange = () => {},
+}) {
   async function findOwned(shop, id) {
     if (!isObjectId(id)) throw new NotFoundError("Timer not found.");
     const timer = await Timer.findOne({ _id: id, shop });
@@ -110,7 +117,6 @@ export function createTimerService({ Timer, adminApi, now = () => new Date() }) 
       timezone,
       color: input.color,
       size: input.size,
-      position: input.position,
       urgency: input.urgency,
       target: { type: input.target.type, resources },
     };
@@ -169,6 +175,7 @@ export function createTimerService({ Timer, adminApi, now = () => new Date() }) 
 
       const fields = await buildTimerFields(session, input);
       const timer = await Timer.create({ shop: session.shop, ...fields });
+      onChange(session.shop);
       return toTimerResponse(timer, now());
     },
 
@@ -177,6 +184,7 @@ export function createTimerService({ Timer, adminApi, now = () => new Date() }) 
       const fields = await buildTimerFields(session, input, { previous: timer });
       timer.set(fields);
       await timer.save();
+      onChange(session.shop);
       return toTimerResponse(timer, now());
     },
 
@@ -184,11 +192,13 @@ export function createTimerService({ Timer, adminApi, now = () => new Date() }) 
       if (!isObjectId(id)) throw new NotFoundError("Timer not found.");
       const { deletedCount } = await Timer.deleteOne({ _id: id, shop: session.shop });
       if (!deletedCount) throw new NotFoundError("Timer not found.");
+      onChange(session.shop);
     },
 
     /** Deletes all of a shop's data (used by the shop/redact privacy webhook). */
     async removeAllForShop(shop) {
       const { deletedCount } = await Timer.deleteMany({ shop });
+      onChange(shop);
       return deletedCount;
     },
   };

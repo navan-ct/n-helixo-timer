@@ -1,0 +1,16 @@
+{
+  "timer": {
+    "message": "Angebot endet in",
+    "ended": "Dieses Angebot ist abgelaufen",
+    "units": {
+      "days": "Tage",
+      "hours": "Std",
+      "minutes": "Min",
+      "seconds": "Sek"
+    },
+    "editor": {
+      "empty": "Vorschau: Für dieses Produkt läuft gerade kein Timer. In der App erstellte Timer werden hier angezeigt.",
+      "unavailable": "Vorschau: Timer konnten nicht geladen werden. Prüfe, ob die App installiert ist, und lade die Seite neu."
+    }
+  }
+}

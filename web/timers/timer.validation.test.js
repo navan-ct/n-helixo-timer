@@ -99,13 +99,15 @@ describe("timerInputSchema", () => {
     expect(fields.startTime).toMatch(/HH:MM/);
   });
 
+  it("rejects the retired position setting", () => {
+    expect(fieldErrors(timerPayload({ position: "top" }))).toEqual({
+      _root: "Unknown field: position.",
+    });
+  });
+
   it("rejects unknown enum values and bad colors", () => {
-    const fields = fieldErrors(
-      timerPayload({ size: "huge", position: "left", urgency: "siren", color: "red" }),
-    );
-    expect(Object.keys(fields)).toEqual(
-      expect.arrayContaining(["size", "position", "urgency", "color"]),
-    );
+    const fields = fieldErrors(timerPayload({ size: "huge", urgency: "siren", color: "red" }));
+    expect(Object.keys(fields)).toEqual(expect.arrayContaining(["size", "urgency", "color"]));
   });
 
   it("rejects unknown fields so clients can't set server-owned data", () => {

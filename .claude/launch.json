@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "shopify-app-dev",
+      "runtimeExecutable": "npx",
+      "runtimeArgs": ["shopify", "app", "dev", "--theme-app-extension-port", "9293"],
+      "port": 9293
+    }
+  ]
+}

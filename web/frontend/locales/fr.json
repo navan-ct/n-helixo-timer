@@ -10,10 +10,24 @@
     "body": "Les applications ne peuvent utiliser /exitiframe que pour accéder à Shopify ou à l’application elle-même.",
     "heading": "Redirection en dehors de Shopify"
   },
+  "HomePage": {
+    "heading": "Affichez des minuteurs sur vos pages produit",
+    "body": "Ajoutez le bloc Minuteur à votre page produit dans l’éditeur de thème. Il affiche le compte à rebours qui s’applique à chaque produit et se masque lorsqu’aucun n’est actif.",
+    "steps": {
+      "add": "Sélectionnez Ajouter à la page produit, puis enregistrez dans l’éditeur de thème.",
+      "move": "Faites glisser le bloc à l’endroit le plus adapté, par exemple au-dessus du bouton Ajouter au panier.",
+      "create": "Créez un compte à rebours et choisissez les produits auxquels il s’applique."
+    },
+    "addBlock": "Ajouter à la page produit",
+    "createTimer": "Créer un compte à rebours"
+  },
+  "NavigationMenu": {
+    "countdownTimers": "Comptes à rebours"
+  },
   "NotFound": {
-    "backToTimers": "Retour aux minuteurs",
-    "description": "Vérifiez l’URL et réessayez, ou revenez à vos minuteurs.",
-    "heading": "Il n’y a pas de page à cette adresse"
+    "description": "Vérifiez l’URL et réessayez, ou rendez-vous sur la page d’accueil de l’application.",
+    "heading": "Il n’y a pas de page à cette adresse",
+    "backToHome": "Aller à l’accueil"
   },
   "TargetPicker": {
     "all": "Tous les produits",
@@ -77,13 +91,6 @@
       "label": "Nom du minuteur",
       "placeholder": "Saisissez le nom du minuteur"
     },
-    "position": {
-      "label": "Position du minuteur",
-      "options": {
-        "bottom": "En bas",
-        "top": "En haut"
-      }
-    },
     "preview": "Aperçu",
     "save": "Enregistrer",
     "scheduleHelp": "Les heures suivent le fuseau horaire de votre boutique : {{timeZone}}. Laissez le début vide pour démarrer immédiatement.",
@@ -104,7 +111,6 @@
       "updated": "Minuteur enregistré"
     },
     "urgency": {
-      "details": "Attire l’attention sur le minuteur pendant sa dernière heure.",
       "label": "Notification d’urgence",
       "options": {
         "color_pulse": "Pulsation de couleur",
@@ -116,6 +122,7 @@
   "TimerPreview": {
     "days": "Jours",
     "defaultMessage": "Fin de l’offre dans",
+    "ended": "Cette offre est terminée",
     "hours": "H",
     "label": "Aperçu du minuteur",
     "minutes": "Min",
@@ -175,8 +182,9 @@
       "heading": "Créez votre premier compte à rebours"
     },
     "loadError": "Impossible de charger les minuteurs",
+    "loading": "Chargement des minuteurs",
     "retry": "Réessayer",
     "subtitle": "Créez et gérez des comptes à rebours pour vos promotions.",
-    "title": "Compte à rebours"
+    "title": "Comptes à rebours"
   }
 }

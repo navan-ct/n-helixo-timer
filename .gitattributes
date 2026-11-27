@@ -1,0 +1,3 @@
+# Built from widget/ (npm --prefix widget run build); collapsed in diffs.
+extensions/timer-widget/assets/timer-widget*.js linguist-generated=true -diff
+extensions/timer-widget/assets/timer-widget.css linguist-generated=true -diff

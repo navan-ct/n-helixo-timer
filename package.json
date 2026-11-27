@@ -5,16 +5,16 @@
   "license": "UNLICENSED",
   "scripts": {
     "shopify": "shopify",
-    "build": "shopify app build",
+    "build": "npm --prefix widget run build && shopify app build",
     "dev": "shopify app dev",
     "info": "shopify app info",
     "generate": "shopify app generate",
-    "deploy": "shopify app deploy",
+    "deploy": "npm --prefix widget run build && shopify app deploy",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
-    "test": "npm --prefix web test && npm --prefix web/frontend test",
+    "test": "npm --prefix web test && npm --prefix web/frontend test && npm --prefix widget test",
     "check": "npm run lint && npm run format:check && npm test"
   },
   "dependencies": {

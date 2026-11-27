@@ -1,3 +1,7 @@
+import { createHmac } from "node:crypto";
+
+import "@shopify/shopify-api/adapters/node";
+import { LATEST_API_VERSION, LogSeverity, shopifyApi } from "@shopify/shopify-api";
 import express from "express";
 import { MongoMemoryServer } from "mongodb-memory-server";
 
@@ -7,6 +11,8 @@ import { silentLogger } from "../lib/logger.js";
 import { createRateLimiters } from "../middleware/rate-limit.js";
 import { requestContext } from "../middleware/request-context.js";
 import { createShopifyAdminApi } from "../shopify/admin-api.js";
+import { createStorefrontTimers } from "../storefront/storefront-timers.js";
+import { createStorefrontRouter } from "../storefront/storefront.routes.js";
 import { Timer } from "../timers/timer.model.js";
 import { createTimerService } from "../timers/timer.service.js";
 
@@ -84,6 +90,7 @@ export const TEST_RATE_LIMITS = {
   max: 10_000,
   writeMax: 10_000,
   authMax: 10_000,
+  storefrontMax: 10_000,
 };
 
 export function buildTestApp({
@@ -113,7 +120,14 @@ export function buildTestApp({
  */
 export function createFakeShopify() {
   const passThrough = () => (_req, _res, next) => next();
+  const validateProxySignature = createProxySignatureValidator();
   return {
+    api: {
+      utils: {
+        validateHmac: (query, { signator } = {}) =>
+          signator === "appProxy" ? validateProxySignature(query) : Promise.resolve(false),
+      },
+    },
     config: {
       auth: { path: "/api/auth", callbackPath: "/api/auth/callback" },
       webhooks: { path: "/api/webhooks" },
@@ -152,7 +166,6 @@ export function timerPayload(overrides = {}) {
     endTime: "23:59",
     color: "#008060",
     size: "medium",
-    position: "top",
     urgency: "color_pulse",
     target: { type: "all", resourceIds: [] },
     ...overrides,
@@ -170,9 +183,86 @@ export function insertTimer(fields = {}) {
     timezone: SHOP_TIMEZONE,
     color: "#008060",
     size: "medium",
-    position: "top",
     urgency: "none",
     target: { type: "all", resources: [] },
     ...fields,
   });
+}
+
+export const API_SECRET = "test-api-secret";
+
+/** Shopify's real app proxy signature check, configured with the test secret. */
+export function createProxySignatureValidator(secret = API_SECRET) {
+  const api = shopifyApi({
+    apiKey: "test-api-key",
+    apiSecretKey: secret,
+    scopes: [],
+    hostName: "localhost",
+    hostScheme: "http",
+    apiVersion: LATEST_API_VERSION,
+    isEmbeddedApp: true,
+    logger: { level: LogSeverity.Error, log: () => {} },
+  });
+  return (query) => api.utils.validateHmac(query, { signator: "appProxy" });
+}
+
+/**
+ * Builds the query string Shopify's app proxy would forward: the storefront
+ * parameters plus shop, path_prefix, timestamp and a signature over all of them.
+ * https://shopify.dev/docs/apps/build/online-store/app-proxies/authenticate-app-proxies
+ */
+export function signedProxyQuery(
+  params = {},
+  { shop = SHOP, secret = API_SECRET, timestamp = Math.floor(Date.now() / 1000) } = {},
+) {
+  const query = {
+    logged_in_customer_id: "",
+    path_prefix: "/apps/n-helixo-timer",
+    shop,
+    timestamp: String(timestamp),
+    ...params,
+  };
+  const message = Object.keys(query)
+    .sort()
+    .map((key) => `${key}=${Array.isArray(query[key]) ? query[key].join(",") : query[key]}`)
+    .join("");
+  const signature = createHmac("sha256", secret).update(message).digest("hex");
+  return new URLSearchParams({ ...query, signature }).toString();
+}
+
+/**
+ * Mounts the real storefront router (signature check included) next to the
+ * admin API, sharing one cache, as in production.
+ */
+export function buildStorefrontTestApp({ now = () => NOW, rateLimit = TEST_RATE_LIMITS } = {}) {
+  const storefrontTimers = createStorefrontTimers({ Timer, now });
+  const adminApi = createShopifyAdminApi({
+    createClient: () => createFakeGraphqlClient(),
+    logger: silentLogger,
+  });
+  const timerService = createTimerService({
+    Timer,
+    adminApi,
+    now,
+    onChange: (shop) => storefrontTimers.invalidate(shop),
+  });
+  const limiters = createRateLimiters({ ...TEST_RATE_LIMITS, ...rateLimit, logger: silentLogger });
+
+  const app = express();
+  app.set("query parser", "simple");
+  app.use(requestContext({ logger: silentLogger }));
+  app.use(
+    "/api/storefront",
+    createStorefrontRouter({
+      storefrontTimers,
+      validateSignature: createProxySignatureValidator(),
+      limiter: limiters.storefront,
+    }),
+  );
+  app.use((req, res, next) => {
+    res.locals.shopify = { session: { shop: req.get("x-test-shop") ?? SHOP } };
+    next();
+  });
+  app.use("/api", createApiRouter({ timerService, limiters, jsonBodyLimit: "16kb" }));
+  return { app, storefrontTimers, timerService };
 }

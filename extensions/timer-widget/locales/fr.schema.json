@@ -1,0 +1,25 @@
+{
+  "blocks": {
+    "timer": {
+      "name": "Minuteur",
+      "settings": {
+        "info": {
+          "content": "Affiche le minuteur qui s’applique à ce produit. Créez et planifiez les minuteurs dans l’application."
+        },
+        "alignment": {
+          "label": "Alignement",
+          "options": {
+            "start": "Gauche",
+            "center": "Centre"
+          }
+        },
+        "space_top": {
+          "label": "Espacement supérieur"
+        },
+        "space_bottom": {
+          "label": "Espacement inférieur"
+        }
+      }
+    }
+  }
+}

@@ -25,6 +25,7 @@ Element.prototype.scrollIntoView = function scrollIntoView() {};
 // `s-*` elements stay un-upgraded and App Bridge APIs are mocked per test.
 beforeEach(() => {
   window.shopify = {
+    config: { shop: "alpha-store.myshopify.com", apiKey: "test-api-key" },
     toast: { show: vi.fn() },
     loading: vi.fn(),
     resourcePicker: vi.fn(),

@@ -120,7 +120,6 @@ describe("toTimerPayload", () => {
       endTime: "23:59",
       color: "#00aa88",
       size: "medium",
-      position: "top",
       urgency: "color_pulse",
       target: { type: "products", resourceIds: ["gid://shopify/Product/1"] },
     });
@@ -149,7 +148,6 @@ describe("formFromTimer", () => {
       },
       color: "#ff0000",
       size: "large",
-      position: "bottom",
       urgency: "shake",
       target: { type: "collections", resources: [{ id: "c1", title: "Summer" }] },
     };
@@ -162,7 +160,6 @@ describe("formFromTimer", () => {
       endTime: "6:30 PM",
       color: "#ff0000",
       size: "large",
-      position: "bottom",
       urgency: "shake",
       targetType: "collections",
       resources: [{ id: "c1", title: "Summer" }],

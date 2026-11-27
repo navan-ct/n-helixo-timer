@@ -10,10 +10,24 @@
     "body": "Apps können /exitiframe nur verwenden, um Shopify oder die App selbst aufzurufen.",
     "heading": "Weiterleitung außerhalb von Shopify"
   },
+  "HomePage": {
+    "heading": "Timer auf deinen Produktseiten anzeigen",
+    "body": "Füge den Timer-Block im Theme-Editor zu deiner Produktseite hinzu. Er zeigt den Countdown-Timer an, der für das jeweilige Produkt gilt, und blendet sich aus, wenn keiner läuft.",
+    "steps": {
+      "add": "Wähle „Zur Produktseite hinzufügen“ aus und speichere anschließend im Theme-Editor.",
+      "move": "Zieh den Block an die passende Stelle, zum Beispiel über die Schaltfläche „In den Warenkorb“.",
+      "create": "Erstelle einen Countdown-Timer und wähle die Produkte aus, für die er gilt."
+    },
+    "addBlock": "Zur Produktseite hinzufügen",
+    "createTimer": "Countdown-Timer erstellen"
+  },
+  "NavigationMenu": {
+    "countdownTimers": "Countdown-Timer"
+  },
   "NotFound": {
-    "backToTimers": "Zurück zu den Timern",
-    "description": "Überprüfe die URL und versuche es erneut oder kehre zu deinen Timern zurück.",
-    "heading": "Unter dieser Adresse gibt es keine Seite"
+    "description": "Überprüfe die URL und versuche es erneut oder kehre zur Startseite der App zurück.",
+    "heading": "Unter dieser Adresse gibt es keine Seite",
+    "backToHome": "Zur Startseite"
   },
   "TargetPicker": {
     "all": "Alle Produkte",
@@ -77,13 +91,6 @@
       "label": "Name des Timers",
       "placeholder": "Namen eingeben"
     },
-    "position": {
-      "label": "Position des Timers",
-      "options": {
-        "bottom": "Unten",
-        "top": "Oben"
-      }
-    },
     "preview": "Vorschau",
     "save": "Speichern",
     "scheduleHelp": "Die Zeiten beziehen sich auf die Zeitzone deines Shops: {{timeZone}}. Lass den Start leer, um sofort zu beginnen.",
@@ -104,7 +111,6 @@
       "updated": "Timer gespeichert"
     },
     "urgency": {
-      "details": "Lenkt in der letzten Stunde die Aufmerksamkeit auf den Timer.",
       "label": "Dringlichkeitshinweis",
       "options": {
         "color_pulse": "Farbpuls",
@@ -116,6 +122,7 @@
   "TimerPreview": {
     "days": "Tage",
     "defaultMessage": "Angebot endet in",
+    "ended": "Dieses Angebot ist abgelaufen",
     "hours": "Std",
     "label": "Timer-Vorschau",
     "minutes": "Min",
@@ -175,6 +182,7 @@
       "heading": "Erstelle deinen ersten Countdown-Timer"
     },
     "loadError": "Timer konnten nicht geladen werden",
+    "loading": "Timer werden geladen",
     "retry": "Erneut versuchen",
     "subtitle": "Erstelle und verwalte Countdown-Timer für deine Aktionen.",
     "title": "Countdown-Timer"

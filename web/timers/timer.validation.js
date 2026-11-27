@@ -8,7 +8,6 @@ import {
   TARGET_RESOURCE_TYPENAMES,
   TARGET_TYPES,
   TIMER_LIMITS,
-  TIMER_POSITIONS,
   TIMER_SIZES,
   TIMER_SORTS,
   TIMER_STATUSES,
@@ -165,7 +164,6 @@ export const timerInputSchema = z
       .regex(HEX_COLOR, { error: "Enter a hex color such as #008060." })
       .transform((value) => value.toLowerCase()),
     size: z.enum(TIMER_SIZES, { error: "Choose a timer size." }),
-    position: z.enum(TIMER_POSITIONS, { error: "Choose a timer position." }),
     urgency: z.enum(URGENCY_EFFECTS, { error: "Choose an urgency notification." }),
     target: targetSchema,
   })
