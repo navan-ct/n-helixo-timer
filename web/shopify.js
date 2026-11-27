@@ -1,63 +1,55 @@
-// Loads web/.env (the backend runs with web/ as its working directory).
-// Variables already set in the environment (e.g. by the Shopify CLI or your host) take precedence.
-import "dotenv/config";
-import { BillingInterval, LATEST_API_VERSION } from "@shopify/shopify-api";
+import { LATEST_API_VERSION, LogSeverity } from "@shopify/shopify-api";
 import { shopifyApp } from "@shopify/shopify-app-express";
-import { MongoDBSessionStorage } from "@shopify/shopify-app-session-storage-mongodb";
-// Keep this in sync with LATEST_API_VERSION (2025-07 in @shopify/shopify-api v11).
-import { restResources } from "@shopify/shopify-api/rest/admin/2025-07";
 
-const { MONGODB_URI, MONGODB_DB_NAME = "n_helixo_timer" } = process.env;
-
-if (!MONGODB_URI) {
-  throw new Error(
-    "MONGODB_URI is not set. Copy web/.env.example to web/.env and add your MongoDB connection string."
-  );
-}
-
-export const sessionStorage = new MongoDBSessionStorage(
-  MONGODB_URI,
-  MONGODB_DB_NAME
-);
-
-// Fail fast with a readable error if MongoDB is unreachable (bad credentials, IP not allowlisted, etc.).
-sessionStorage.ready
-  .then(() => console.log(`Connected to MongoDB (database: ${MONGODB_DB_NAME})`))
-  .catch((error) => {
-    console.error(`Failed to connect to MongoDB: ${error.message}`);
-    process.exit(1);
-  });
-
-// The transactions with Shopify will always be marked as test transactions, unless NODE_ENV is production.
-// See the ensureBilling helper to learn more about billing in this template.
-const billingConfig = {
-  "My Shopify One-Time Charge": {
-    // This is an example configuration that would do a one-time charge for $5 (only USD is currently supported)
-    amount: 5.0,
-    currencyCode: "USD",
-    interval: BillingInterval.OneTime,
-  },
+const PINO_LEVEL = {
+  [LogSeverity.Error]: "error",
+  [LogSeverity.Warning]: "warn",
+  [LogSeverity.Info]: "info",
+  [LogSeverity.Debug]: "debug",
 };
 
-const shopify = shopifyApp({
-  api: {
-    apiVersion: LATEST_API_VERSION,
-    restResources,
-    future: {
-      customerAddressDefaultFix: true,
-      lineItemBilling: true,
-      unstable_managedPricingSupport: true,
-    },
-    billing: undefined, // or replace with billingConfig above to enable example billing
-  },
-  auth: {
-    path: "/api/auth",
-    callbackPath: "/api/auth/callback",
-  },
-  webhooks: {
-    path: "/api/webhooks",
-  },
-  sessionStorage,
-});
+/**
+ * Configures the Shopify app (OAuth, session tokens, webhooks, Admin API
+ * clients) from validated config, and routes the library's own logs through
+ * the app logger.
+ *
+ * @param {{
+ *   config: ReturnType<typeof import("./config.js").loadConfig>,
+ *   sessionStorage: import("@shopify/shopify-app-session-storage").SessionStorage,
+ *   logger: import("pino").Logger,
+ * }} deps
+ */
+export function createShopify({ config, sessionStorage, logger }) {
+  const log = logger.child({ component: "shopify" });
 
-export default shopify;
+  return shopifyApp({
+    api: {
+      apiKey: config.shopify.apiKey,
+      apiSecretKey: config.shopify.apiSecret,
+      scopes: config.shopify.scopes,
+      hostScheme: config.shopify.hostScheme,
+      hostName: config.shopify.hostName,
+      apiVersion: LATEST_API_VERSION,
+      future: {
+        customerAddressDefaultFix: true,
+        lineItemBilling: true,
+        unstable_managedPricingSupport: true,
+      },
+      billing: undefined, // See https://shopify.dev/docs/apps/launch/billing to charge merchants
+      logger: {
+        level: config.isProduction ? LogSeverity.Info : LogSeverity.Debug,
+        httpRequests: false,
+        timestamps: false,
+        log: (severity, message) => log[PINO_LEVEL[severity] ?? "info"](message),
+      },
+    },
+    auth: {
+      path: "/api/auth",
+      callbackPath: "/api/auth/callback",
+    },
+    webhooks: {
+      path: "/api/webhooks",
+    },
+    sessionStorage,
+  });
+}

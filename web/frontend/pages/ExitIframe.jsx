@@ -1,43 +1,42 @@
 import { useAppBridge } from "@shopify/app-bridge-react";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo } from "react";
+import { useTranslation } from "react-i18next";
 import { useLocation } from "react-router-dom";
-import { Banner, Layout, Page } from "@shopify/polaris";
+
+/** Returns the redirect URL if it points at Shopify or this app, otherwise null. */
+function safeRedirectUrl(search) {
+  const redirectUri = new URLSearchParams(search).get("redirectUri");
+  if (!redirectUri) return null;
+  try {
+    const url = new URL(decodeURIComponent(redirectUri));
+    const allowed =
+      [window.location.hostname, "admin.shopify.com"].includes(url.hostname) ||
+      url.hostname.endsWith(".myshopify.com");
+    return allowed ? url : null;
+  } catch {
+    return null;
+  }
+}
 
 export default function ExitIframe() {
-  const app = useAppBridge();
+  const shopify = useAppBridge();
+  const { t } = useTranslation();
   const { search } = useLocation();
-  const [showWarning, setShowWarning] = useState(false);
-
-  app.loading(true);
+  const redirectUrl = useMemo(() => safeRedirectUrl(search), [search]);
 
   useEffect(() => {
-    if (!!app && !!search) {
-      const params = new URLSearchParams(search);
-      const redirectUri = params.get("redirectUri");
-      const url = new URL(decodeURIComponent(redirectUri));
+    if (!redirectUrl) return;
+    shopify.loading(true);
+    window.open(redirectUrl, "_top");
+  }, [shopify, redirectUrl]);
 
-      if (
-        [location.hostname, "admin.shopify.com"].includes(url.hostname) ||
-        url.hostname.endsWith(".myshopify.com")
-      ) {
-        window.open(url, "_top");
-      } else {
-        setShowWarning(true);
-      }
-    }
-  }, [app, search, setShowWarning]);
+  if (redirectUrl || !search) return null;
 
-  return showWarning ? (
-    <Page narrowWidth>
-      <Layout>
-        <Layout.Section>
-          <div style={{ marginTop: "100px" }}>
-            <Banner title="Redirecting outside of Shopify" status="warning">
-              Apps can only use /exitiframe to reach Shopify or the app itself.
-            </Banner>
-          </div>
-        </Layout.Section>
-      </Layout>
-    </Page>
-  ) : null;
+  return (
+    <s-page inlineSize="small">
+      <s-banner tone="warning" heading={t("ExitIframe.heading")}>
+        {t("ExitIframe.body")}
+      </s-banner>
+    </s-page>
+  );
 }

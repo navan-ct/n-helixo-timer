@@ -1,0 +1,8 @@
+node_modules
+dist
+coverage
+.shopify
+package-lock.json
+web/frontend/assets
+*.md
+.vscode

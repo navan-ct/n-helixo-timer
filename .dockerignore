@@ -1,4 +1,8 @@
-web/node_modules
-web/frontend/node_modules
-web/frontend/dist
+**/node_modules
+**/coverage
 web/.env
+web/frontend/dist
+web/test
+web/frontend/test
+web/**/*.test.js
+web/**/*.test.jsx
