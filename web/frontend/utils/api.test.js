@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 
 import { mockFetch } from "../test/render";
 
-import { ApiError, timersApi } from "./api";
+import { analyticsApi, ApiError, timersApi } from "./api";
 
 describe("timersApi", () => {
   it("builds list query strings, skipping empty values", async () => {
@@ -62,5 +62,16 @@ describe("timersApi", () => {
       status: 502,
       message: "Something went wrong. Please try again.",
     });
+  });
+});
+
+describe("analyticsApi", () => {
+  it("fetches the home page analytics", async () => {
+    const fetchMock = mockFetch(() => [200, { impressions: {} }]);
+    await expect(analyticsApi.summary()).resolves.toEqual({ impressions: {} });
+    expect(fetchMock).toHaveBeenCalledWith(
+      "/api/analytics",
+      expect.objectContaining({ method: "GET" }),
+    );
   });
 });

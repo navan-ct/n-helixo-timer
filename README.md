@@ -9,9 +9,11 @@ Merchants choose where a timer appears (all products, or specific products or co
 
 ## Features
 
-- **Home** (`web/frontend/pages/index.jsx`): one section that adds the Timer block to the product page through a theme editor deep link.
+- **Home** (`web/frontend/pages/index.jsx`), following the Polaris Homepage template:
+  - **Analytics**, first (`web/frontend/components/home/AnalyticsCards.jsx`): three cards under one heading, **Impressions** in the last 30 days, with the change from the 30 days before; **Active timers** (running countdowns plus evergreen timers); and **Scheduled timers** (countdowns that start later). See [Analytics](#analytics).
+  - The **Timer Block** section (`web/frontend/components/home/SetupSection.jsx`), second. It adds the Timer block to the product page through a theme editor deep link. Its wording follows whether the block is on the published theme, read from App Bridge's [`shopify.app.extensions()`](https://shopify.dev/docs/api/app-home/apis/authentication-and-data/app-api) (no extra access scopes) and checked again whenever the merchant comes back to the app. The layout stays the same; once the block is added, the text says so and the main button opens the theme editor instead of adding a second block.
 - **Countdown timers** (`web/frontend/pages/countdown-timers.jsx`, in the app nav): Polaris index table with search, status filter (active, scheduled, expired), sorting, pagination, an empty state, and edit and delete actions.
-- **Evergreen timers** (`web/frontend/pages/evergreen-timers.jsx`, in the app nav): the same table with a Duration column in place of status and schedule (every evergreen timer is always running), sorting by duration, search, pagination and edit and delete actions. Both pages share `web/frontend/components/timers/TimerListPage.jsx`.
+- **Evergreen timers** (`web/frontend/pages/evergreen-timers.jsx`, in the app nav): the same table with a Duration column in place of status and schedule (every evergreen timer is always running), sorting by duration, search, pagination and edit and delete actions. Both pages share `web/frontend/components/timers/TimerListPage.jsx`, and both tables show each timer's all-time impressions.
 - **Create and edit modal** (`web/frontend/components/timers/TimerFormModal.jsx`), shared by both types:
   - Name, description, and the timer's period: a schedule for countdowns, or a duration in days, hours and minutes for evergreen timers.
   - Targeting with the App Bridge Resource Picker.
@@ -25,26 +27,28 @@ Merchants choose where a timer appears (all products, or specific products or co
 
 | Layer          | Where                                 | Notes                                                                                                                   |
 | -------------- | ------------------------------------- | ----------------------------------------------------------------------------------------------------------------------- |
-| Storefront     | `widget`, `extensions/timer-widget`   | Preact widget bundled into a theme app extension; data from `web/storefront` through the app proxy                       |
+| Storefront     | `widget`, `extensions/timer-widget`   | Preact widget bundled into a theme app extension; data from `web/storefront` through the app proxy                      |
 | UI             | `web/frontend`                        | React 19 + [Polaris web components](https://shopify.dev/docs/api/app-home/web-components) (`polaris-2.js`) + App Bridge |
 | Bootstrap      | `web/index.js`, `web/server.js`       | Loads config, connects dependencies in order, starts HTTP, owns the lifecycle                                           |
 | HTTP pipeline  | `web/app.js`                          | Express app built from injected dependencies (the same pipeline runs in tests)                                          |
 | Config         | `web/config.js`                       | Every environment variable, validated with Zod at startup                                                               |
 | API            | `web/api`, `web/timers`               | JSON API router; timer validation (Zod), service and Mongoose model                                                     |
+| Analytics      | `web/analytics`                       | Timer impressions: the model, the buffered recorder, the read service and its route                                     |
 | Shopify        | `web/shopify.js`, `web/shopify/`      | OAuth, session tokens, webhooks, session storage, Admin GraphQL adapter                                                 |
 | Infrastructure | `web/lib`, `web/middleware`, `web/db` | Logging, lifecycle, HTTP server, health, security, rate limiting, errors, MongoDB                                       |
 
 ### API
 
-All routes are under `/api/timers`. Each one requires a valid App Bridge session token and only touches the calling shop's data.
+The admin API is under `/api`. Each route requires a valid App Bridge session token and only touches the calling shop's data.
 
-| Method | Path   | Description                                                   |
-| ------ | ------ | ------------------------------------------------------------- |
-| GET    | `/`    | List timers. Query: `type`, `query`, `status`, `sort`, `page` |
-| POST   | `/`    | Create a timer                                                |
-| GET    | `/:id` | Get one timer                                                 |
-| PUT    | `/:id` | Replace a timer                                               |
-| DELETE | `/:id` | Delete a timer                                                |
+| Method | Path          | Description                                                                                                                 |
+| ------ | ------------- | --------------------------------------------------------------------------------------------------------------------------- |
+| GET    | `/timers`     | List timers, each with its all-time `impressions`. Query: `type`, `query`, `status`, `sort`, `page`                         |
+| POST   | `/timers`     | Create a timer                                                                                                              |
+| GET    | `/timers/:id` | Get one timer                                                                                                               |
+| PUT    | `/timers/:id` | Replace a timer                                                                                                             |
+| DELETE | `/timers/:id` | Delete a timer                                                                                                              |
+| GET    | `/analytics`  | The home page's analytics: `impressions` (`days`, `current`, `previous`) and `timers` (`running`, `scheduled`, `evergreen`) |
 
 Timers have a `type`: `countdown` (with `startDate`, `startTime`, `endDate`, `endTime`) or `evergreen` (with `durationMinutes`). A body without a `type` is a countdown, and a timer's type can't change. Lists show one type at a time (`type` defaults to `countdown`), and only countdown lists include the shop's `timezone`. Status filters only narrow countdowns; evergreen timers are always `active`.
 
@@ -52,9 +56,10 @@ Errors use one shape: `{ "error": { "code", "message", "fields"?, "requestId" } 
 
 The storefront API is under `/api/storefront`. Shoppers reach it as `/apps/n-helixo-timer/*` on the shop's domain, and Shopify's [app proxy](https://shopify.dev/docs/apps/build/online-store/app-proxies) forwards and signs each request (`[app_proxy]` in `shopify.app.toml`). It needs no session: the signature is verified instead, and the signed `shop` scopes the data.
 
-| Method | Path                                         | Description                                                                                   |
-| ------ | -------------------------------------------- | --------------------------------------------------------------------------------------------- |
-| GET    | `/timers?product=<id>&collections=<id,id,…>` | Timers for one product page in priority order, plus the server time and the refresh interval |
+| Method | Path                                         | Description                                                                                                                         |
+| ------ | -------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
+| GET    | `/timers?product=<id>&collections=<id,id,…>` | Timers for one product page in priority order, plus the server time and the refresh interval                                        |
+| POST   | `/impressions`                               | `{ "timers": ["<id>", …] }` (up to 10): the shopper saw these timers. JSON or `text/plain` (what `sendBeacon` sends). Answers `204` |
 
 ## Storefront widget
 
@@ -89,7 +94,22 @@ The **Timer** app block (`extensions/timer-widget/blocks/timer.liquid`) renders 
 
 **Polish.** Digits roll as they change, the urgency effect (color pulse or shake) plays during the final hour, and a progress line shows the time left. It respects `prefers-reduced-motion`, and screen readers get a minute-level description.
 
+**Impressions.** The widget reports when shoppers see a timer (`widget/src/core/impressions.js`, `widget/src/ui/useViewTracking.js`):
+
+- A view counts when at least half of a running timer is on screen for one second in a visible tab (the IAB/MRC viewability standard). Each timer counts once per page view. The "offer ended" message and the theme editor's sample never count.
+- Views are batched for 2 seconds, so several blocks on a page send one report, and sent with `navigator.sendBeacon` (a keepalive `fetch` where that's missing). Leaving or hiding the page sends them right away.
+- Reports are sent only when Shopify's [Customer Privacy API](https://shopify.dev/docs/api/customer-privacy) says analytics processing is allowed. The widget loads that API if the theme hasn't. Views wait if consent comes later in the page view, and are dropped otherwise.
+- A report holds timer IDs only: no cookie, storage or identifier is used. In the theme editor, nothing is reported.
+
 `shopify app dev` rebuilds the widget on change (`widget/shopify.web.toml`). `npm run deploy` builds it before deploying. The built files are committed because they're what the extension ships.
+
+## Analytics
+
+Impressions are stored in `web/analytics` as anonymous, aggregated numbers only.
+
+- **`timer_impressions`**: one counter per timer per UTC day. The home page sums the last 30 days (today and the 29 days before, in UTC) and the 30 days before that; the timer tables show each timer's all-time total. Counts stay when a timer is deleted, so a period's total doesn't change after the fact.
+
+Storefront traffic never writes to MongoDB directly. `web/analytics/impression-recorder.js` adds views up in memory and writes them every 10 seconds (sooner if 5,000 counters are waiting): one `$inc` per timer and day, so instances can write concurrently. Reports for timers that aren't the shop's, aren't running, or ended more than a minute ago are ignored, and the check uses the same in-memory cache as the timers endpoint. Writes are at most once: a batch that fails is logged and dropped, since retrying a partly applied batch would count views twice. Shutting down writes what's buffered before MongoDB closes.
 
 ## Server operations
 
@@ -116,7 +136,7 @@ On `SIGTERM` or `SIGINT`, or after an uncaught exception or unhandled rejection,
 1. Marks itself not ready, so `/readyz` returns 503, and keeps serving for `SHUTDOWN_DELAY_MS` (5s in production, 0 in development) while load balancers deregister it.
 2. Sends `Connection: close` on responses, so keep-alive clients move to other instances.
 3. Stops accepting connections, lets in-flight requests finish, and closes keep-alive sockets as they go idle.
-4. Closes session storage and MongoDB.
+4. Writes buffered timer impressions, then closes session storage and MongoDB.
 5. Exits with 0 (or 1 after a fatal error).
 
 The whole sequence is capped by `SHUTDOWN_TIMEOUT_MS`. A second signal exits immediately. If startup fails, the same steps undo whatever had already started. In development, nodemon restarts with `SIGTERM`, so restarts also shut down gracefully.
@@ -160,7 +180,7 @@ Counters are kept in memory, per instance. Responses include the standard `RateL
 - **Data isolation**: every query is scoped to the authenticated shop. Malformed or foreign IDs return `404`.
 - **Updates and limits**: updates use optimistic concurrency, so a conflicting edit returns `409`. Each shop can have up to 200 timers.
 - **Sessions**: Shopify sessions are stored in MongoDB (`shopify_sessions`). Indexes are added on `id` and `shop` because every authenticated request looks a session up.
-- **Webhooks**: they're verified by HMAC. The `shop/redact` webhook erases a shop's timers, and no customer data is stored.
+- **Webhooks**: they're verified by HMAC. The `shop/redact` webhook erases a shop's timers and impressions. No customer data is stored: impressions are anonymous daily counts.
 
 ### Docker
 

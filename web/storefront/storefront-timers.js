@@ -13,6 +13,11 @@ export const LOOKAHEAD_MS = 15 * 60_000;
 export const MAX_TIMERS_PER_RESPONSE = 10;
 /** How often the widget should refresh, in seconds. Sent with every response. */
 export const REFRESH_INTERVAL_SECONDS = 60;
+/**
+ * Views of a countdown that ended this recently still count: the widget
+ * reports a view a moment after it happens, and a timer can run out meanwhile.
+ */
+export const IMPRESSION_GRACE_MS = 60_000;
 
 /** Higher wins when several timers apply to the same product at once. */
 const SPECIFICITY = { products: 3, collections: 2, all: 1 };
@@ -149,7 +154,10 @@ export function createStorefrontTimers({
   }
 
   async function load(shop) {
-    const live = { $or: [{ type: "evergreen" }, { endsAt: { $gt: now() } }] };
+    // Countdowns that ended within the grace period stay cached (but aren't
+    // sent to the storefront), so late view reports for them still count.
+    const recentEnd = new Date(now().getTime() - IMPRESSION_GRACE_MS);
+    const live = { $or: [{ type: "evergreen" }, { endsAt: { $gt: recentEnd } }] };
     const docs = await Timer.find({ shop, ...live }, PROJECTION)
       .sort({ startsAt: 1, _id: 1 })
       .limit(TIMER_LIMITS.MAX_TIMERS_PER_SHOP)
@@ -223,6 +231,30 @@ export function createStorefrontTimers({
         serverTime: new Date(currentTime).toISOString(),
         refreshInterval: REFRESH_INTERVAL_SECONDS,
       };
+    },
+
+    /**
+     * Which of `timerIds` are the shop's timers that shoppers can be seeing:
+     * evergreen timers, and countdowns that are running (or ended within
+     * `IMPRESSION_GRACE_MS`). Answered from the same cache, so reporting views
+     * doesn't query MongoDB either.
+     * @param {string} shop
+     * @param {string[]} timerIds
+     * @returns {Promise<string[]>}
+     */
+    async filterViewable(shop, timerIds) {
+      const timers = await liveTimers(shop);
+      const currentTime = now().getTime();
+      const viewable = new Set(
+        timers
+          .filter(
+            (timer) =>
+              timer.type === "evergreen" ||
+              (timer.startsAt <= currentTime && timer.endsAt > currentTime - IMPRESSION_GRACE_MS),
+          )
+          .map((timer) => timer.id),
+      );
+      return timerIds.filter((id) => viewable.has(id));
     },
 
     /** Drops a shop's cached timers. Called after any change to them. */

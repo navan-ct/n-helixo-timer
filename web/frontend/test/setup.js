@@ -29,6 +29,8 @@ beforeEach(() => {
     toast: { show: vi.fn() },
     loading: vi.fn(),
     resourcePicker: vi.fn(),
+    // The Timer block isn't on the theme unless a test says otherwise.
+    app: { extensions: vi.fn(async () => []) },
   };
 });
 

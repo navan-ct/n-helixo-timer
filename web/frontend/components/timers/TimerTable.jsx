@@ -1,5 +1,6 @@
 import { useTranslation } from "react-i18next";
 
+import { formatNumber } from "../../utils/format";
 import { formatDuration, formatInstant } from "../../utils/time";
 
 import "./TimerTable.css";
@@ -36,7 +37,8 @@ function TargetSummary({ target }) {
 /**
  * Index table of one type of timer, with search, sort and pagination, plus a
  * status filter for countdowns. Countdowns show their status and schedule;
- * evergreen timers show their duration.
+ * evergreen timers show their duration. Every timer shows how many times
+ * shoppers have seen it (all-time impressions).
  *
  * @param {{
  *   type: "countdown" | "evergreen",
@@ -149,6 +151,9 @@ export function TimerTable({
           ) : (
             <s-table-header listSlot="labeled">{t("TimerTable.columns.duration")}</s-table-header>
           )}
+          <s-table-header listSlot="labeled" format="numeric">
+            {t("TimerTable.columns.impressions")}
+          </s-table-header>
           <s-table-header listSlot="inline">
             <s-text accessibilityVisibility="exclusive">{t("TimerTable.columns.actions")}</s-text>
           </s-table-header>
@@ -200,13 +205,17 @@ export function TimerTable({
               ) : (
                 <s-table-cell>{formatDuration(timer.durationMinutes, locale)}</s-table-cell>
               )}
+              <s-table-cell>{formatNumber(timer.impressions ?? 0, locale)}</s-table-cell>
               <s-table-cell>
-                <s-button
-                  variant="tertiary"
-                  icon="menu-horizontal"
-                  accessibilityLabel={t("TimerTable.actionsFor", { name: timer.name })}
-                  commandFor={`timer-actions-${timer.id}`}
-                />
+                {/* The actions button sits at the end of its cell, as in Shopify's own tables. */}
+                <s-stack direction="inline" justifyContent="end">
+                  <s-button
+                    variant="tertiary"
+                    icon="menu-horizontal"
+                    accessibilityLabel={t("TimerTable.actionsFor", { name: timer.name })}
+                    commandFor={`timer-actions-${timer.id}`}
+                  />
+                </s-stack>
                 <s-menu
                   id={`timer-actions-${timer.id}`}
                   accessibilityLabel={t("TimerTable.actionsFor", { name: timer.name })}

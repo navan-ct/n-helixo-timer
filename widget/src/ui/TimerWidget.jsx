@@ -3,6 +3,7 @@ import { useEffect, useLayoutEffect, useRef, useState } from "preact/hooks";
 import { runningTimer } from "../core/timer-data.js";
 
 import { Countdown } from "./Countdown.jsx";
+import { useViewTracking } from "./useViewTracking.js";
 
 /** Stands in when the block can't load timers (no product, or the block picker preview). */
 const IDLE_FEED = {
@@ -87,11 +88,16 @@ function useDisplay(feed, clock) {
  *   feed: ReturnType<typeof import("../core/feed.js").getFeed> | null,
  *   clock: { now: () => number, subscribe: (listener: (now: number) => void) => () => void },
  *   onVisibleChange: (visible: boolean) => void,
- * }} props
+ *   onView?: ((timerId: string) => void) | null,
+ * }} props `onView` is called when the shopper has seen a running timer
+ *   (see useViewTracking.js); the theme editor passes none.
  */
-export function TimerWidget({ config, feed, clock, onVisibleChange }) {
+export function TimerWidget({ config, feed, clock, onVisibleChange, onView }) {
   const { designMode, visualPreview, strings } = config;
   const { now, status, running, ended } = useDisplay(feed ?? IDLE_FEED, clock);
+  const rootRef = useRef(null);
+  // Only real timers count, while they run: not "offer ended", not the editor's sample.
+  useViewTracking(rootRef, running?.id ?? null, onView);
 
   let content = null;
   if (running) {
@@ -125,6 +131,7 @@ export function TimerWidget({ config, feed, clock, onVisibleChange }) {
   if (!content) return null;
   return (
     <div
+      ref={rootRef}
       class={`hx-root${entering ? " hx-root--enter" : ""}`}
       onAnimationEnd={(event) => {
         if (event.target === event.currentTarget) setEntering(false);
