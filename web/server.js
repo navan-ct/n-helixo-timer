@@ -1,5 +1,8 @@
 import { setTimeout as delay } from "node:timers/promises";
 
+import { TimerImpression } from "./analytics/analytics.model.js";
+import { createAnalyticsService } from "./analytics/analytics.service.js";
+import { createImpressionRecorder } from "./analytics/impression-recorder.js";
 import { createApp } from "./app.js";
 import { loadConfig } from "./config.js";
 import { runMigrations } from "./db/migrations.js";
@@ -41,7 +44,7 @@ export async function startServer({ env = process.env } = {}) {
   try {
     await connectDatabase({ ...config.mongo, logger });
     lifecycle.onShutdown("mongodb", disconnectDatabase);
-    await syncModelIndexes([Timer]);
+    await syncModelIndexes([Timer, TimerImpression]);
     await runMigrations({ logger });
 
     const sessions = await createSessionStorage({
@@ -58,11 +61,20 @@ export async function startServer({ env = process.env } = {}) {
       timeoutMs: config.shopify.apiTimeoutMs,
       retries: config.shopify.apiRetries,
     });
+    // Storefront views are buffered and written in batches. Registered before
+    // the HTTP server's hook, so it runs after the last request has drained and
+    // before MongoDB closes.
+    const impressionRecorder = createImpressionRecorder({ TimerImpression, logger });
+    impressionRecorder.start();
+    lifecycle.onShutdown("timer impressions", impressionRecorder.stop);
+
+    const analyticsService = createAnalyticsService({ TimerImpression });
     const storefrontTimers = createStorefrontTimers({ Timer });
     const timerService = createTimerService({
       Timer,
       adminApi,
       onChange: (shop) => storefrontTimers.invalidate(shop),
+      impressionsByTimer: analyticsService.impressionsByTimer,
     });
 
     const app = createApp({
@@ -70,7 +82,9 @@ export async function startServer({ env = process.env } = {}) {
       logger,
       shopify,
       timerService,
+      analyticsService,
       storefrontTimers,
+      impressionRecorder,
       lifecycle,
       readinessChecks: { database: () => pingDatabase(), sessionStorage: sessions.ping },
     });

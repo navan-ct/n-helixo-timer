@@ -2,7 +2,17 @@ import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tansta
 
 import { timersApi } from "../utils/api";
 
+import { analyticsQueryKey } from "./useAnalytics";
+
 export const timersQueryKey = (params) => ["timers", params];
+
+/** Timer changes show in the lists and in the home page's counts. */
+function invalidateTimerData(queryClient) {
+  return Promise.all([
+    queryClient.invalidateQueries({ queryKey: ["timers"] }),
+    queryClient.invalidateQueries({ queryKey: analyticsQueryKey }),
+  ]);
+}
 
 /** @param {{ query: string, status: string, sort: string, page: number }} params */
 export function useTimerList(params) {
@@ -10,7 +20,8 @@ export function useTimerList(params) {
     queryKey: timersQueryKey(params),
     queryFn: ({ signal }) => timersApi.list(params, { signal }),
     placeholderData: keepPreviousData,
-    // Statuses depend on the current time, so refresh them periodically.
+    // Statuses depend on the current time and impressions keep coming in, so
+    // refresh them periodically.
     refetchInterval: 60_000,
   });
 }
@@ -21,7 +32,7 @@ export function useSaveTimer() {
   return useMutation({
     mutationFn: ({ id, payload }) =>
       id ? timersApi.update(id, payload) : timersApi.create(payload),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["timers"] }),
+    onSuccess: () => invalidateTimerData(queryClient),
   });
 }
 
@@ -29,6 +40,6 @@ export function useDeleteTimer() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (id) => timersApi.remove(id),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["timers"] }),
+    onSuccess: () => invalidateTimerData(queryClient),
   });
 }

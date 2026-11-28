@@ -5,6 +5,9 @@ import { LATEST_API_VERSION, LogSeverity, shopifyApi } from "@shopify/shopify-ap
 import express from "express";
 import { MongoMemoryServer } from "mongodb-memory-server";
 
+import { TimerImpression } from "../analytics/analytics.model.js";
+import { createAnalyticsService } from "../analytics/analytics.service.js";
+import { createImpressionRecorder } from "../analytics/impression-recorder.js";
 import { createApiRouter } from "../api/router.js";
 import { connectDatabase, disconnectDatabase, syncModelIndexes } from "../db/mongoose.js";
 import { silentLogger } from "../lib/logger.js";
@@ -59,7 +62,7 @@ export async function startDatabase() {
     serverSelectionTimeoutMs: 5_000,
     logger: silentLogger,
   });
-  await syncModelIndexes([Timer]);
+  await syncModelIndexes([Timer, TimerImpression]);
   return async () => {
     await disconnectDatabase();
     await server.stop();
@@ -100,7 +103,15 @@ export function buildTestApp({
   timerService: overrideService,
 } = {}) {
   const adminApi = createShopifyAdminApi({ createClient: () => graphql, logger: silentLogger });
-  const timerService = overrideService ?? createTimerService({ Timer, adminApi, now });
+  const analyticsService = createAnalyticsService({ TimerImpression, now });
+  const timerService =
+    overrideService ??
+    createTimerService({
+      Timer,
+      adminApi,
+      now,
+      impressionsByTimer: analyticsService.impressionsByTimer,
+    });
   const limiters = createRateLimiters({ ...TEST_RATE_LIMITS, ...rateLimit, logger: silentLogger });
 
   const app = express();
@@ -110,8 +121,11 @@ export function buildTestApp({
     res.locals.shopify = { session: { shop: req.get("x-test-shop") ?? SHOP } };
     next();
   });
-  app.use("/api", createApiRouter({ timerService, limiters, jsonBodyLimit: "16kb" }));
-  return { app, timerService };
+  app.use(
+    "/api",
+    createApiRouter({ timerService, analyticsService, limiters, jsonBodyLimit: "16kb" }),
+  );
+  return { app, timerService, analyticsService };
 }
 
 /**
@@ -262,12 +276,24 @@ export function signedProxyQuery(
   return new URLSearchParams({ ...query, signature }).toString();
 }
 
+/** Inserts a day's impression count directly, bypassing the storefront. */
+export function insertImpressions({ shop = SHOP, timerId, day, count }) {
+  return TimerImpression.create({ shop, timerId, day: new Date(day), count });
+}
+
 /**
  * Mounts the real storefront router (signature check included) next to the
- * admin API, sharing one cache, as in production.
+ * admin API, sharing one cache, as in production. Impressions are buffered
+ * as in production; call `impressionRecorder.flush()` to write them.
  */
 export function buildStorefrontTestApp({ now = () => NOW, rateLimit = TEST_RATE_LIMITS } = {}) {
   const storefrontTimers = createStorefrontTimers({ Timer, now });
+  const impressionRecorder = createImpressionRecorder({
+    TimerImpression,
+    logger: silentLogger,
+    now,
+  });
+  const analyticsService = createAnalyticsService({ TimerImpression, now });
   const adminApi = createShopifyAdminApi({
     createClient: () => createFakeGraphqlClient(),
     logger: silentLogger,
@@ -277,6 +303,7 @@ export function buildStorefrontTestApp({ now = () => NOW, rateLimit = TEST_RATE_
     adminApi,
     now,
     onChange: (shop) => storefrontTimers.invalidate(shop),
+    impressionsByTimer: analyticsService.impressionsByTimer,
   });
   const limiters = createRateLimiters({ ...TEST_RATE_LIMITS, ...rateLimit, logger: silentLogger });
 
@@ -287,6 +314,7 @@ export function buildStorefrontTestApp({ now = () => NOW, rateLimit = TEST_RATE_
     "/api/storefront",
     createStorefrontRouter({
       storefrontTimers,
+      impressions: impressionRecorder,
       validateSignature: createProxySignatureValidator(),
       limiter: limiters.storefront,
     }),
@@ -295,6 +323,9 @@ export function buildStorefrontTestApp({ now = () => NOW, rateLimit = TEST_RATE_
     res.locals.shopify = { session: { shop: req.get("x-test-shop") ?? SHOP } };
     next();
   });
-  app.use("/api", createApiRouter({ timerService, limiters, jsonBodyLimit: "16kb" }));
-  return { app, storefrontTimers, timerService };
+  app.use(
+    "/api",
+    createApiRouter({ timerService, analyticsService, limiters, jsonBodyLimit: "16kb" }),
+  );
+  return { app, storefrontTimers, timerService, impressionRecorder };
 }

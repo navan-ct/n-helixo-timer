@@ -64,3 +64,10 @@ export const timersApi = {
     return request(`/api/timers/${encodeURIComponent(id)}`, { method: "DELETE" });
   },
 };
+
+export const analyticsApi = {
+  /** Impressions, timer counts and the Timer block's status, for the home page. */
+  summary({ signal } = {}) {
+    return request("/api/analytics", { signal });
+  },
+};

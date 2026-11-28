@@ -1,5 +1,6 @@
 import express, { Router } from "express";
 
+import { createAnalyticsRouter } from "../analytics/analytics.routes.js";
 import { apiErrorHandler, apiNotFound } from "../middleware/errors.js";
 import { noStore } from "../middleware/http.js";
 import { apiContentSecurityPolicy } from "../middleware/security.js";
@@ -11,11 +12,12 @@ import { createTimerRouter } from "../timers/timer.routes.js";
  *
  * @param {{
  *   timerService: ReturnType<typeof import("../timers/timer.service.js").createTimerService>,
+ *   analyticsService: ReturnType<typeof import("../analytics/analytics.service.js").createAnalyticsService>,
  *   limiters: ReturnType<typeof import("../middleware/rate-limit.js").createRateLimiters>,
  *   jsonBodyLimit: string,
  * }} deps
  */
-export function createApiRouter({ timerService, limiters, jsonBodyLimit }) {
+export function createApiRouter({ timerService, analyticsService, limiters, jsonBodyLimit }) {
   const router = Router();
 
   router.use(noStore, apiContentSecurityPolicy);
@@ -24,6 +26,7 @@ export function createApiRouter({ timerService, limiters, jsonBodyLimit }) {
   router.use(express.json({ limit: jsonBodyLimit, strict: true }));
 
   router.use("/timers", createTimerRouter({ timerService }));
+  router.use("/analytics", createAnalyticsRouter({ analyticsService, timerService }));
 
   router.use(apiNotFound);
   router.use(apiErrorHandler);

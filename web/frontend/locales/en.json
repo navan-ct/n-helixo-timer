@@ -11,6 +11,7 @@
     "heading": "Can’t open this link"
   },
   "HomePage": {
+    "title": "Timer Block",
     "heading": "Show timers on your product pages",
     "body": "Add the Timer block to your product page in the theme editor. It shows the timer that applies to each product.",
     "steps": {
@@ -20,7 +21,44 @@
     },
     "addBlock": "Add to product page",
     "createCountdownTimer": "Create countdown timer",
-    "createEvergreenTimer": "Create evergreen timer"
+    "createEvergreenTimer": "Create evergreen timer",
+    "added": {
+      "body": "The Timer block is on your product page in your live theme. It shows the timer that applies to each product.",
+      "steps": {
+        "add": "Click Open theme editor to change the block’s alignment or spacing."
+      },
+      "openThemeEditor": "Open theme editor"
+    },
+    "analytics": {
+      "heading": "Analytics",
+      "loading": "Loading",
+      "loadError": "Couldn’t load analytics",
+      "retry": "Try again",
+      "impressions": "Impressions",
+      "period": {
+        "one": "Last {{count}} day",
+        "other": "Last {{count}} days"
+      },
+      "change": {
+        "up": {
+          "one": "Up {{change}} from the previous day",
+          "other": "Up {{change}} from the previous {{count}} days"
+        },
+        "down": {
+          "one": "Down {{change}} from the previous day",
+          "other": "Down {{change}} from the previous {{count}} days"
+        },
+        "none": {
+          "one": "No change from the previous day",
+          "other": "No change from the previous {{count}} days"
+        }
+      },
+      "activeTimers": "Active timers",
+      "activeBreakdown": "{{countdown}} countdown, {{evergreen}} evergreen",
+      "noActiveTimers": "No timers are running",
+      "scheduledTimers": "Scheduled timers",
+      "scheduledNote": "Countdowns that start later"
+    }
   },
   "NavigationMenu": {
     "countdownTimers": "Countdown Timers",
@@ -153,6 +191,7 @@
       "appliesTo": "Applies to",
       "duration": "Duration",
       "ends": "Ends",
+      "impressions": "Impressions",
       "starts": "Starts",
       "status": "Status",
       "timer": "Timer"

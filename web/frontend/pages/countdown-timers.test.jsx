@@ -24,6 +24,7 @@ function apiTimer(overrides = {}) {
     urgency: "color_pulse",
     target: { type: "products", resources: [{ id: "p1", title: "Snowboard" }] },
     status: "scheduled",
+    impressions: 0,
     ...overrides,
   };
 }
@@ -54,6 +55,44 @@ describe("CountdownTimersPage", () => {
     expect(screen.getByText("1 product")).toBeInTheDocument();
     expect(screen.getByText("Nov 29, 2026, 12:00 AM")).toBeInTheDocument();
     expect(screen.getByText("Nov 30, 2026, 11:59 PM")).toBeInTheDocument();
+  });
+
+  it("shows each timer's impressions in a numeric column", async () => {
+    mockFetch(() => [
+      200,
+      listResponse([apiTimer({ impressions: 12480 }), apiTimer({ id: "t2", name: "Unseen" })]),
+    ]);
+    const { container } = renderWithProviders(<CountdownTimersPage />);
+
+    expect(await screen.findByText("12,480")).toBeInTheDocument();
+    const headers = [...container.querySelectorAll("s-table-header")];
+    expect(headers.map((header) => header.textContent)).toEqual([
+      "Timer",
+      "Status",
+      "Applies to",
+      "Starts",
+      "Ends",
+      "Impressions",
+      "Actions",
+    ]);
+    const impressionsHeader = headers[5];
+    expect(impressionsHeader).toHaveAttribute("format", "numeric");
+    const unseenRow = screen.getByText("Unseen").closest("s-table-row");
+    const cells = [...unseenRow.querySelectorAll("s-table-cell")].map((cell) => cell.textContent);
+    expect(cells[5]).toBe("0");
+  });
+
+  it("puts each row's actions button at the end of its cell", async () => {
+    mockFetch(() => [200, listResponse([apiTimer()])]);
+    const { container } = renderWithProviders(<CountdownTimersPage />);
+
+    await screen.findByText("Black Friday Sale");
+    const button = container.querySelector('s-button[commandFor="timer-actions-t1"]');
+    expect(button).toHaveAttribute("accessibilityLabel", "Actions for Black Friday Sale");
+    const wrapper = button.parentElement;
+    expect(wrapper.tagName).toBe("S-STACK");
+    expect(wrapper).toHaveAttribute("justifyContent", "end");
+    expect(wrapper.parentElement.tagName).toBe("S-TABLE-CELL");
   });
 
   it("shows a spinner, not an empty table, until the first load finishes", async () => {

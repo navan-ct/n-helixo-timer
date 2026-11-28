@@ -1,5 +1,7 @@
 import { render } from "preact";
 
+import { impressionsUrl, recordImpression } from "../core/impressions.js";
+
 import "./styles.css";
 import { TimerWidget } from "./TimerWidget.jsx";
 
@@ -23,8 +25,20 @@ export function mount(host, { config, feed, clock }) {
   const onVisibleChange = (visible) => {
     host.dataset.state = visible ? "visible" : "empty";
   };
+  // Views are counted on the live storefront only, not in the theme editor.
+  const tracksViews = Boolean(
+    feed && config.endpoint && !config.designMode && !config.visualPreview,
+  );
+  const url = tracksViews ? impressionsUrl(config.endpoint) : null;
+  const onView = url ? (timerId) => recordImpression(url, timerId) : null;
   render(
-    <TimerWidget config={config} feed={feed} clock={clock} onVisibleChange={onVisibleChange} />,
+    <TimerWidget
+      config={config}
+      feed={feed}
+      clock={clock}
+      onVisibleChange={onVisibleChange}
+      onView={onView}
+    />,
     root,
   );
   return () => {

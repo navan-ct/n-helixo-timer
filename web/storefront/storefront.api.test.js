@@ -1,6 +1,7 @@
 import request from "supertest";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 
+import { TimerImpression } from "../analytics/analytics.model.js";
 import {
   NOW,
   OTHER_SHOP,
@@ -15,7 +16,7 @@ import {
 } from "../test/helpers.js";
 import { Timer } from "../timers/timer.model.js";
 
-import { LOOKAHEAD_MS, MAX_TIMERS_PER_RESPONSE } from "./storefront-timers.js";
+import { IMPRESSION_GRACE_MS, LOOKAHEAD_MS, MAX_TIMERS_PER_RESPONSE } from "./storefront-timers.js";
 
 const PRODUCT = "1001";
 const COLLECTION = "2001";
@@ -25,6 +26,7 @@ const at = (offsetMs) => new Date(NOW.getTime() + offsetMs);
 let stopDatabase;
 let app;
 let storefrontTimers;
+let impressionRecorder;
 
 beforeAll(async () => {
   stopDatabase = await startDatabase();
@@ -35,8 +37,8 @@ afterAll(async () => {
 });
 
 beforeEach(async () => {
-  await Timer.deleteMany({});
-  ({ app, storefrontTimers } = buildStorefrontTestApp());
+  await Promise.all([Timer.deleteMany({}), TimerImpression.deleteMany({})]);
+  ({ app, storefrontTimers, impressionRecorder } = buildStorefrontTestApp());
 });
 
 afterEach(() => {
@@ -352,5 +354,140 @@ describe("rate limiting", () => {
     expect(limited.status).toBe(429);
     expect(limited.body.error.code).toBe("RATE_LIMITED");
     expect((await fromShopper("203.0.113.2")).status).toBe(200);
+  });
+});
+
+function postImpressions(body, { type = "application/json", ...options } = {}) {
+  return request(app)
+    .post(`/api/storefront/impressions?${signedProxyQuery({}, options)}`)
+    .set("Content-Type", type)
+    .send(typeof body === "string" ? body : JSON.stringify(body));
+}
+
+/** Writes buffered impressions, then returns each timer's stored count. */
+async function storedImpressions() {
+  await impressionRecorder.flush();
+  const rows = await TimerImpression.find({}).lean();
+  return Object.fromEntries(rows.map((row) => [row.timerId.toString(), row.count]));
+}
+
+describe("POST /api/storefront/impressions", () => {
+  it("counts a view of each timer, for today (UTC)", async () => {
+    const countdown = await insertTimer({ startsAt: at(-HOUR), endsAt: at(HOUR) });
+    const evergreen = await insertEvergreenTimer();
+
+    const response = await postImpressions({ timers: [countdown.id, evergreen.id] });
+    await postImpressions({ timers: [countdown.id] });
+
+    expect(response.status).toBe(204);
+    expect(response.headers["cache-control"]).toBe("no-store");
+    expect(await storedImpressions()).toEqual({ [countdown.id]: 2, [evergreen.id]: 1 });
+    const row = await TimerImpression.findOne({ timerId: countdown._id }).lean();
+    expect(row).toMatchObject({ shop: SHOP, day: new Date("2026-11-27T00:00:00.000Z") });
+    expect(Object.keys(row).sort()).toEqual(["_id", "count", "day", "shop", "timerId"]);
+  });
+
+  it("accepts the text/plain body navigator.sendBeacon sends", async () => {
+    const timer = await insertEvergreenTimer();
+
+    const response = await postImpressions(JSON.stringify({ timers: [timer.id] }), {
+      type: "text/plain;charset=UTF-8",
+    });
+
+    expect(response.status).toBe(204);
+    expect(await storedImpressions()).toEqual({ [timer.id]: 1 });
+  });
+
+  it("counts each timer once per report", async () => {
+    const timer = await insertEvergreenTimer();
+    await postImpressions({ timers: [timer.id, timer.id, timer.id.toUpperCase()] });
+    expect(await storedImpressions()).toEqual({ [timer.id]: 1 });
+  });
+
+  it("ignores timers shoppers can't be seeing", async () => {
+    const scheduled = await insertTimer({ startsAt: at(HOUR), endsAt: at(2 * HOUR) });
+    const expired = await insertTimer({ startsAt: at(-2 * HOUR), endsAt: at(-HOUR) });
+    const otherShop = await insertEvergreenTimer({ shop: OTHER_SHOP });
+    const deleted = "64b7f0c2a1b2c3d4e5f60718";
+
+    const response = await postImpressions({
+      timers: [scheduled.id, expired.id, otherShop.id, deleted],
+    });
+
+    expect(response.status).toBe(204);
+    expect(await storedImpressions()).toEqual({});
+  });
+
+  it("still counts a countdown that ended a moment ago", async () => {
+    let current = NOW;
+    ({ app, impressionRecorder, storefrontTimers } = buildStorefrontTestApp({
+      now: () => current,
+    }));
+    const timer = await insertTimer({ startsAt: at(-HOUR), endsAt: at(1_000) });
+
+    current = at(1_000 + IMPRESSION_GRACE_MS - 1);
+    await postImpressions({ timers: [timer.id] });
+    expect(await storedImpressions()).toEqual({ [timer.id]: 1 });
+
+    current = at(1_000 + IMPRESSION_GRACE_MS + 1);
+    storefrontTimers.invalidate(SHOP);
+    await postImpressions({ timers: [timer.id] });
+    expect(await storedImpressions()).toEqual({ [timer.id]: 1 });
+  });
+
+  it("rejects malformed reports", async () => {
+    const cases = [
+      [{}, 422],
+      [{ timers: [] }, 422],
+      [{ timers: ["not-an-id"] }, 422],
+      [{ timers: "64b7f0c2a1b2c3d4e5f60718" }, 422],
+      [
+        {
+          timers: Array.from(
+            { length: MAX_TIMERS_PER_RESPONSE + 1 },
+            () => "64b7f0c2a1b2c3d4e5f60718",
+          ),
+        },
+        422,
+      ],
+      ["{not json", 400],
+    ];
+    for (const [body, status] of cases) {
+      // eslint-disable-next-line no-await-in-loop
+      const response = await postImpressions(body);
+      expect({ body, status: response.status }).toEqual({ body, status });
+    }
+    expect(await storedImpressions()).toEqual({});
+  });
+
+  it("rejects oversized reports", async () => {
+    const response = await postImpressions({
+      timers: ["64b7f0c2a1b2c3d4e5f60718"],
+      pad: "x".repeat(4_000),
+    });
+    expect(response.status).toBe(413);
+  });
+
+  it("only takes reports signed by Shopify", async () => {
+    const timer = await insertEvergreenTimer();
+    const forged = await postImpressions({ timers: [timer.id] }, { secret: "wrong-secret" });
+    const unsigned = await request(app)
+      .post(`/api/storefront/impressions?shop=${SHOP}`)
+      .send({ timers: [timer.id] });
+
+    expect(forged.status).toBe(401);
+    expect(unsigned.status).toBe(401);
+    expect(await storedImpressions()).toEqual({});
+  });
+
+  it("answers from the cache, without querying MongoDB", async () => {
+    const timer = await insertEvergreenTimer();
+    await getTimers();
+    const find = vi.spyOn(Timer, "find");
+
+    await postImpressions({ timers: [timer.id] });
+
+    expect(find).not.toHaveBeenCalled();
+    expect(await storedImpressions()).toEqual({ [timer.id]: 1 });
   });
 });

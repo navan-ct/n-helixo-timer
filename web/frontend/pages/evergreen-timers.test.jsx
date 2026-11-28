@@ -17,6 +17,7 @@ function apiTimer(overrides = {}) {
     urgency: "color_pulse",
     target: { type: "all", resources: [] },
     status: "active",
+    impressions: 8732,
     ...overrides,
   };
 }
@@ -50,7 +51,8 @@ describe("EvergreenTimersPage", () => {
     expect(table.getByText("1 day, 1 hour, 30 minutes")).toBeInTheDocument();
     expect(table.getByText("All products")).toBeInTheDocument();
     const headers = [...container.querySelectorAll("s-table-header")].map((h) => h.textContent);
-    expect(headers).toEqual(["Timer", "Applies to", "Duration", "Actions"]);
+    expect(headers).toEqual(["Timer", "Applies to", "Duration", "Impressions", "Actions"]);
+    expect(table.getByText("8,732")).toBeInTheDocument();
     // Every evergreen timer is running, so there's no status to show or filter by.
     expect(container.querySelector("s-badge")).toBeNull();
     expect(container.querySelectorAll('[slot="filters"] s-select')).toHaveLength(1);

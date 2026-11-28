@@ -55,7 +55,9 @@ function appShell({ staticPath, apiKey, cacheHtml }) {
  *   logger: import("pino").Logger,
  *   shopify: ReturnType<typeof import("./shopify.js").createShopify>,
  *   timerService: ReturnType<typeof import("./timers/timer.service.js").createTimerService>,
+ *   analyticsService: ReturnType<typeof import("./analytics/analytics.service.js").createAnalyticsService>,
  *   storefrontTimers: ReturnType<typeof import("./storefront/storefront-timers.js").createStorefrontTimers>,
+ *   impressionRecorder: ReturnType<typeof import("./analytics/impression-recorder.js").createImpressionRecorder>,
  *   lifecycle: ReturnType<typeof import("./lib/lifecycle.js").createLifecycle>,
  *   readinessChecks: Record<string, () => Promise<unknown>>,
  * }} deps
@@ -65,7 +67,9 @@ export function createApp({
   logger,
   shopify,
   timerService,
+  analyticsService,
   storefrontTimers,
+  impressionRecorder,
   lifecycle,
   readinessChecks,
 }) {
@@ -97,7 +101,7 @@ export function createApp({
   app.post(
     shopify.config.webhooks.path,
     shopify.processWebhooks({
-      webhookHandlers: createPrivacyWebhookHandlers({ timerService, logger }),
+      webhookHandlers: createPrivacyWebhookHandlers({ timerService, analyticsService, logger }),
     }),
   );
 
@@ -106,6 +110,7 @@ export function createApp({
     "/api/storefront",
     createStorefrontRouter({
       storefrontTimers,
+      impressions: impressionRecorder,
       validateSignature: (query) => shopify.api.utils.validateHmac(query, { signator: "appProxy" }),
       limiter: limiters.storefront,
     }),
@@ -115,7 +120,12 @@ export function createApp({
   app.use("/api/*", shopify.validateAuthenticatedSession());
   app.use(
     "/api",
-    createApiRouter({ timerService, limiters, jsonBodyLimit: config.server.jsonBodyLimit }),
+    createApiRouter({
+      timerService,
+      analyticsService,
+      limiters,
+      jsonBodyLimit: config.server.jsonBodyLimit,
+    }),
   );
 
   // App shell. If you add routes outside /api, add a proxy rule for them in

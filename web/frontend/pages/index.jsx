@@ -1,10 +1,15 @@
 import { useAppBridge } from "@shopify/app-bridge-react";
 import { useTranslation } from "react-i18next";
 
-import { TimerPreview } from "../components/timers/TimerPreview";
+import { AnalyticsCards } from "../components/home/AnalyticsCards";
+import { SetupSection } from "../components/home/SetupSection";
+import { useAnalytics } from "../hooks/useAnalytics";
+import { APP_BLOCK_HANDLE, useTimerBlockAdded } from "../hooks/useTimerBlockAdded";
 
-/** Handle of the app block: extensions/timer-widget/blocks/timer.liquid */
-const APP_BLOCK_HANDLE = "timer";
+/** The theme editor, open at the product page template. */
+export function themeEditorUrl({ shop }) {
+  return `https://${shop}/admin/themes/current/editor?template=product`;
+}
 
 /**
  * Theme editor deep link that adds the app block to the main section of the
@@ -20,46 +25,36 @@ export function addAppBlockUrl({ shop, apiKey }) {
   return `https://${shop}/admin/themes/current/editor?${params}`;
 }
 
+/**
+ * The app's home page: the analytics, then the Timer Block section, whose wording
+ * follows whether the Timer block is on the published theme.
+ */
 export default function HomePage() {
   const { t } = useTranslation();
   const shopify = useAppBridge();
-  const editorUrl = addAppBlockUrl({ shop: shopify.config.shop, apiKey: shopify.config.apiKey });
+  const { shop, apiKey } = shopify.config;
+  const blockAdded = useTimerBlockAdded();
+  const analytics = useAnalytics();
 
   return (
     <s-page>
-      <s-section>
-        <s-query-container>
-          <s-grid
-            gridTemplateColumns="@container (inline-size > 640px) 1fr 300px, 1fr"
-            gap="large"
-            alignItems="start"
-          >
-            <s-stack gap="base">
-              <s-stack gap="small-200">
-                <s-heading>{t("HomePage.heading")}</s-heading>
-                <s-paragraph>{t("HomePage.body")}</s-paragraph>
-              </s-stack>
-              <s-ordered-list>
-                <s-list-item>{t("HomePage.steps.add")}</s-list-item>
-                <s-list-item>{t("HomePage.steps.move")}</s-list-item>
-                <s-list-item>{t("HomePage.steps.create")}</s-list-item>
-              </s-ordered-list>
-              <s-stack direction="inline" gap="small-200">
-                <s-button variant="primary" icon="external" href={editorUrl} target="_blank">
-                  {t("HomePage.addBlock")}
-                </s-button>
-                <s-button variant="secondary" href="/countdown-timers">
-                  {t("HomePage.createCountdownTimer")}
-                </s-button>
-                <s-button variant="secondary" href="/evergreen-timers">
-                  {t("HomePage.createEvergreenTimer")}
-                </s-button>
-              </s-stack>
-            </s-stack>
-            <TimerPreview color="#008060" size="small" urgency="none" />
-          </s-grid>
-        </s-query-container>
-      </s-section>
+      <s-stack gap="base">
+        {analytics.isError ? (
+          <s-banner tone="critical" heading={t("HomePage.analytics.loadError")}>
+            <s-button slot="secondary-actions" onClick={() => analytics.refetch()}>
+              {t("HomePage.analytics.retry")}
+            </s-button>
+          </s-banner>
+        ) : (
+          <AnalyticsCards analytics={analytics.data} loading={analytics.isPending} />
+        )}
+
+        <SetupSection
+          added={blockAdded.data === true}
+          addBlockUrl={addAppBlockUrl({ shop, apiKey })}
+          themeEditorUrl={themeEditorUrl({ shop })}
+        />
+      </s-stack>
     </s-page>
   );
 }

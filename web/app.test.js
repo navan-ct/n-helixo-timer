@@ -37,7 +37,9 @@ function buildApp({
   production,
   rateLimit,
   timerService,
+  analyticsService,
   storefrontTimers,
+  impressionRecorder,
   readinessChecks,
   shopify,
 } = {}) {
@@ -52,9 +54,16 @@ function buildApp({
       list: vi.fn(async () => ({ timers: [], pageInfo: {}, timezone: "UTC" })),
       removeAllForShop: vi.fn(),
     },
+    analyticsService: analyticsService ?? {
+      summary: vi.fn(),
+      impressionsByTimer: vi.fn(async () => new Map()),
+      removeAllForShop: vi.fn(),
+    },
     storefrontTimers: storefrontTimers ?? {
       forProduct: vi.fn(async () => ({ timers: [], serverTime: "", refreshInterval: 60 })),
+      filterViewable: vi.fn(async () => []),
     },
+    impressionRecorder: impressionRecorder ?? { recordImpressions: vi.fn() },
   });
   return { app, lifecycle };
 }
@@ -189,6 +198,28 @@ describe("security", () => {
     });
     expect(unsigned.status).toBe(401);
     expect(unsigned.body.error.code).toBe("INVALID_SIGNATURE");
+  });
+
+  it("serves analytics to the authenticated shop only", async () => {
+    const summary = { impressions: { days: 30, current: 5, previous: 2 } };
+    const analyticsService = { summary: vi.fn(async () => summary) };
+    const timerService = {
+      counts: vi.fn(async () => ({ running: 1, scheduled: 0, evergreen: 2 })),
+    };
+    const { app } = buildApp({ analyticsService, timerService });
+
+    const anonymous = await request(app).get("/api/analytics");
+    const response = await request(app).get("/api/analytics").set("x-test-shop", SHOP);
+
+    expect(anonymous.status).toBe(401);
+    expect(response.status).toBe(200);
+    expect(response.headers["cache-control"]).toBe("no-store");
+    expect(response.body).toEqual({
+      ...summary,
+      timers: { running: 1, scheduled: 0, evergreen: 2 },
+    });
+    expect(analyticsService.summary).toHaveBeenCalledWith(SHOP);
+    expect(timerService.counts).toHaveBeenCalledWith({ shop: SHOP });
   });
 
   it("parses query strings flat, so operator objects can't reach handlers", async () => {

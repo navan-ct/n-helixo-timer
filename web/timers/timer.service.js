@@ -94,15 +94,18 @@ export function toTimerResponse(timer, now) {
  *   adminApi: ReturnType<typeof import("../shopify/admin-api.js").createShopifyAdminApi>,
  *   now?: () => Date,
  *   onChange?: (shop: string) => void,
+ *   impressionsByTimer?: (shop: string, timerIds: string[]) => Promise<Map<string, number>>,
  * }} deps
  *   `onChange` runs after a shop's timers are created, updated or deleted (the
- *   storefront read model uses it to drop its cache).
+ *   storefront read model uses it to drop its cache). `impressionsByTimer`
+ *   gives each listed timer its all-time impressions (analytics/analytics.service.js).
  */
 export function createTimerService({
   Timer,
   adminApi,
   now = () => new Date(),
   onChange = () => {},
+  impressionsByTimer = async () => new Map(),
 }) {
   async function findOwned(shop, id) {
     if (!isObjectId(id)) throw new NotFoundError(TIMER_NOT_FOUND);
@@ -172,9 +175,16 @@ export function createTimerService({
         // Evergreen timers have no schedule, so they don't need the time zone.
         type === "countdown" ? adminApi.getShopTimezone(session) : undefined,
       ]);
+      const impressions = await impressionsByTimer(
+        session.shop,
+        timers.map((timer) => timer._id.toString()),
+      );
 
       return {
-        timers: timers.map((timer) => toTimerResponse(timer, currentTime)),
+        timers: timers.map((timer) => ({
+          ...toTimerResponse(timer, currentTime),
+          impressions: impressions.get(timer._id.toString()) ?? 0,
+        })),
         pageInfo: {
           page,
           pageSize,
@@ -184,6 +194,27 @@ export function createTimerService({
         },
         ...(timezone && { timezone }),
       };
+    },
+
+    /**
+     * How many timers of each kind the shop has right now: countdowns that are
+     * running, countdowns that start later, and evergreen timers (always running).
+     */
+    async counts(session) {
+      const currentTime = now();
+      const countdowns = { shop: session.shop, type: "countdown" };
+      const [running, scheduled, evergreen] = await Promise.all([
+        Timer.countDocuments({
+          ...countdowns,
+          ...statusFilter("countdown", "active", currentTime),
+        }),
+        Timer.countDocuments({
+          ...countdowns,
+          ...statusFilter("countdown", "scheduled", currentTime),
+        }),
+        Timer.countDocuments({ shop: session.shop, type: "evergreen" }),
+      ]);
+      return { running, scheduled, evergreen };
     },
 
     async get(session, id) {
