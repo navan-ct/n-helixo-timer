@@ -10,6 +10,7 @@ export function AppNav() {
   return (
     <s-app-nav>
       <s-link href="/countdown-timers">{t("NavigationMenu.countdownTimers")}</s-link>
+      <s-link href="/evergreen-timers">{t("NavigationMenu.evergreenTimers")}</s-link>
     </s-app-nav>
   );
 }

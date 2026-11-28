@@ -62,9 +62,7 @@ export function resolveSchedule(input, { zone, now, previousEndsAt }) {
 
   if (endsAt <= startsAt) {
     throw new ValidationError({
-      [endField]: startDate
-        ? "End must be after the start date and time."
-        : "End must be in the future.",
+      [endField]: startDate ? "End must be after the start." : "End must be in the future.",
     });
   }
 

@@ -1,18 +1,19 @@
 import { useTranslation } from "react-i18next";
 
-import { formatInstant } from "../../utils/time";
+import { formatDuration, formatInstant } from "../../utils/time";
 
 import "./TimerTable.css";
 
 const STATUS_TONE = { active: "success", scheduled: "info", expired: "neutral" };
-export const SORT_OPTIONS = [
-  "created_desc",
-  "start_asc",
-  "start_desc",
-  "end_asc",
-  "name_asc",
-  "name_desc",
-];
+/** The sorts offered for each type; the API accepts the same ones. */
+export const SORT_OPTIONS = {
+  countdown: ["created_desc", "start_asc", "start_desc", "end_asc", "name_asc", "name_desc"],
+  evergreen: ["created_desc", "duration_asc", "duration_desc", "name_asc", "name_desc"],
+};
+/**
+ * Countdowns are filtered by status. Evergreen timers are always running, each
+ * shopper on their own clock, so they have no status to filter by.
+ */
 export const STATUS_FILTERS = ["all", "active", "scheduled", "expired"];
 
 function TargetSummary({ target }) {
@@ -33,9 +34,12 @@ function TargetSummary({ target }) {
 }
 
 /**
- * Index table of timers with search, status filter, sort and pagination.
+ * Index table of one type of timer, with search, sort and pagination, plus a
+ * status filter for countdowns. Countdowns show their status and schedule;
+ * evergreen timers show their duration.
  *
  * @param {{
+ *   type: "countdown" | "evergreen",
  *   timers: object[],
  *   pageInfo?: { hasNextPage: boolean, hasPreviousPage: boolean },
  *   loading: boolean,
@@ -52,6 +56,7 @@ function TargetSummary({ target }) {
  * }} props
  */
 export function TimerTable({
+  type,
   timers,
   pageInfo,
   loading,
@@ -69,6 +74,7 @@ export function TimerTable({
   const { t, i18n } = useTranslation();
   const locale = i18n.language;
   const isFiltered = Boolean(search) || status !== "all";
+  const isCountdown = type === "countdown";
 
   return (
     <s-section padding="none" accessibilityLabel={t("TimerTable.label")}>
@@ -82,7 +88,11 @@ export function TimerTable({
       >
         <s-query-container slot="filters">
           <s-grid
-            gridTemplateColumns="@container (inline-size > 560px) 1fr auto auto, 1fr"
+            gridTemplateColumns={
+              isCountdown
+                ? "@container (inline-size > 560px) 1fr auto auto, 1fr"
+                : "@container (inline-size > 480px) 1fr auto, 1fr"
+            }
             gap="small-200"
             alignItems="center"
           >
@@ -94,19 +104,21 @@ export function TimerTable({
               value={search}
               oninput={(event) => onSearchChange(event.currentTarget.value)}
             />
-            <s-select
-              label={t("TimerTable.statusFilter")}
-              labelAccessibilityVisibility="exclusive"
-              icon="filter"
-              value={status}
-              onchange={(event) => onStatusChange(event.currentTarget.value)}
-            >
-              {STATUS_FILTERS.map((value) => (
-                <s-option key={value} value={value}>
-                  {t(`TimerTable.statusOptions.${value}`)}
-                </s-option>
-              ))}
-            </s-select>
+            {isCountdown && (
+              <s-select
+                label={t("TimerTable.statusFilter")}
+                labelAccessibilityVisibility="exclusive"
+                icon="filter"
+                value={status}
+                onchange={(event) => onStatusChange(event.currentTarget.value)}
+              >
+                {STATUS_FILTERS.map((value) => (
+                  <s-option key={value} value={value}>
+                    {t(`TimerTable.statusOptions.${value}`)}
+                  </s-option>
+                ))}
+              </s-select>
+            )}
             <s-select
               label={t("TimerTable.sortBy")}
               labelAccessibilityVisibility="exclusive"
@@ -114,7 +126,7 @@ export function TimerTable({
               value={sort}
               onchange={(event) => onSortChange(event.currentTarget.value)}
             >
-              {SORT_OPTIONS.map((value) => (
+              {SORT_OPTIONS[type].map((value) => (
                 <s-option key={value} value={value}>
                   {t(`TimerTable.sortOptions.${value}`)}
                 </s-option>
@@ -125,10 +137,18 @@ export function TimerTable({
 
         <s-table-header-row>
           <s-table-header listSlot="primary">{t("TimerTable.columns.timer")}</s-table-header>
-          <s-table-header listSlot="inline">{t("TimerTable.columns.status")}</s-table-header>
+          {isCountdown && (
+            <s-table-header listSlot="inline">{t("TimerTable.columns.status")}</s-table-header>
+          )}
           <s-table-header listSlot="labeled">{t("TimerTable.columns.appliesTo")}</s-table-header>
-          <s-table-header listSlot="labeled">{t("TimerTable.columns.starts")}</s-table-header>
-          <s-table-header listSlot="labeled">{t("TimerTable.columns.ends")}</s-table-header>
+          {isCountdown ? (
+            <>
+              <s-table-header listSlot="labeled">{t("TimerTable.columns.starts")}</s-table-header>
+              <s-table-header listSlot="labeled">{t("TimerTable.columns.ends")}</s-table-header>
+            </>
+          ) : (
+            <s-table-header listSlot="labeled">{t("TimerTable.columns.duration")}</s-table-header>
+          )}
           <s-table-header listSlot="inline">
             <s-text accessibilityVisibility="exclusive">{t("TimerTable.columns.actions")}</s-text>
           </s-table-header>
@@ -158,20 +178,28 @@ export function TimerTable({
                   </s-stack>
                 </s-stack>
               </s-table-cell>
-              <s-table-cell>
-                <s-badge tone={STATUS_TONE[timer.status]}>
-                  {t(`TimerTable.statusOptions.${timer.status}`)}
-                </s-badge>
-              </s-table-cell>
+              {isCountdown && (
+                <s-table-cell>
+                  <s-badge tone={STATUS_TONE[timer.status]}>
+                    {t(`TimerTable.statusOptions.${timer.status}`)}
+                  </s-badge>
+                </s-table-cell>
+              )}
               <s-table-cell>
                 <TargetSummary target={timer.target} />
               </s-table-cell>
-              <s-table-cell>
-                {formatInstant(timer.startsAt, { locale, timeZone: timer.timezone })}
-              </s-table-cell>
-              <s-table-cell>
-                {formatInstant(timer.endsAt, { locale, timeZone: timer.timezone })}
-              </s-table-cell>
+              {isCountdown ? (
+                <>
+                  <s-table-cell>
+                    {formatInstant(timer.startsAt, { locale, timeZone: timer.timezone })}
+                  </s-table-cell>
+                  <s-table-cell>
+                    {formatInstant(timer.endsAt, { locale, timeZone: timer.timezone })}
+                  </s-table-cell>
+                </>
+              ) : (
+                <s-table-cell>{formatDuration(timer.durationMinutes, locale)}</s-table-cell>
+              )}
               <s-table-cell>
                 <s-button
                   variant="tertiary"
@@ -193,23 +221,18 @@ export function TimerTable({
               </s-table-cell>
             </s-table-row>
           ))}
-        </s-table-body>
-      </s-table>
-
-      {!loading && timers.length === 0 && (
-        <s-box padding="large-200">
-          <s-stack gap="small-200" alignItems="center">
-            <s-icon type="search" color="subdued" />
-            <s-heading>{t("TimerTable.noResults.heading")}</s-heading>
-            <s-text color="subdued">{t("TimerTable.noResults.body")}</s-text>
+          {/* The table shows this only when there are no rows and it isn't loading. */}
+          <s-empty-state heading={t("TimerTable.noResults.heading")}>
+            <s-icon slot="graphic" type="search" />
+            <s-text slot="subheading">{t("TimerTable.noResults.body")}</s-text>
             {isFiltered && (
-              <s-button variant="tertiary" onClick={onClearFilters}>
+              <s-button slot="secondary-actions" variant="secondary" onClick={onClearFilters}>
                 {t("TimerTable.noResults.clear")}
               </s-button>
             )}
-          </s-stack>
-        </s-box>
-      )}
+          </s-empty-state>
+        </s-table-body>
+      </s-table>
     </s-section>
   );
 }

@@ -24,6 +24,21 @@ function useNow() {
   return now;
 }
 
+/**
+ * When the evergreen preview started: the preview's current time when it first
+ * shows a duration, and again whenever the duration changes, so it always plays
+ * from the full duration like a shopper arriving now. Using the preview's own
+ * clock keeps the first frame at exactly the duration.
+ */
+function useEvergreenStart(duration, now) {
+  const [start, setStart] = useState(() => ({ duration, at: now }));
+  if (start.duration !== duration) {
+    setStart({ duration, at: now });
+    return now;
+  }
+  return start.at;
+}
+
 /** Two-digit (or longer) text for a unit, as digits from the right: ones place first. */
 const digitsFromRight = (value) => String(value).padStart(2, "0").split("").reverse();
 
@@ -80,12 +95,26 @@ function Digit({ value, previous }) {
  *   description?: string,
  *   startsAt?: number | null,
  *   endsAt?: number | null,
+ *   duration?: number | null,
  * }} props Times are UTC timestamps. Without `endsAt` the preview shows a
- *   sample countdown; without `startsAt` the timer starts now.
+ *   sample countdown; without `startsAt` the timer starts now. `duration` (in
+ *   milliseconds) previews an evergreen timer instead: it runs from the moment
+ *   it's shown, as for a shopper arriving now.
  */
-export function TimerPreview({ color, size, urgency, description, startsAt, endsAt }) {
+export function TimerPreview({
+  color,
+  size,
+  urgency,
+  description,
+  startsAt: scheduledStart,
+  endsAt: scheduledEnd,
+  duration,
+}) {
   const { t } = useTranslation();
   const now = useNow();
+  const evergreenStart = useEvergreenStart(duration, now);
+  const startsAt = duration ? evergreenStart : scheduledStart;
+  const endsAt = duration ? evergreenStart + duration : scheduledEnd;
 
   const background = HEX_COLOR.test(color) ? color : "#008060";
   const ended = Boolean(endsAt) && endsAt <= now;

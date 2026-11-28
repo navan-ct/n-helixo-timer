@@ -4,19 +4,18 @@ import { useTranslation } from "react-i18next";
 
 import { useSaveTimer } from "../../hooks/useTimers";
 import { ApiError } from "../../utils/api";
+import { formatTimeOfDay, parseTimeInput, zonedWallTimeToEpoch } from "../../utils/time";
 import {
-  describeTimeZone,
-  formatTimeOfDay,
-  parseTimeInput,
-  zonedWallTimeToEpoch,
-} from "../../utils/time";
-import {
+  DURATION_FIELDS,
+  DURATION_MAX_DAYS,
   HEX_COLOR,
   TIMER_LIMITS,
   TIMER_SIZES,
   URGENCY_EFFECTS,
   createEmptyForm,
+  durationFromForm,
   formFromTimer,
+  isValidDuration,
   mapServerFieldErrors,
   toTimerPayload,
   validateTimerForm,
@@ -34,13 +33,26 @@ const FIELD_ORDER = [
   "startTime",
   "endDate",
   "endTime",
+  ...DURATION_FIELDS.map(({ field }) => field),
+  "duration",
   "description",
   "resources",
   "color",
 ];
+const FORM_FIELDS = new Set(FIELD_ORDER);
+
+/** Values interpolated into each field's error messages. */
+const ERROR_PARAMS = {
+  name: { max: TIMER_LIMITS.NAME_MAX_LENGTH },
+  description: { max: TIMER_LIMITS.DESCRIPTION_MAX_LENGTH },
+  duration: { max: DURATION_MAX_DAYS },
+};
+
+const MINUTE_MS = 60_000;
 
 /**
- * Create/edit form for a countdown timer, shown in a Polaris modal.
+ * Create/edit form for a timer, shown in a Polaris modal. Both types share the
+ * form; a countdown has a schedule, an evergreen timer has a duration.
  *
  * The modal element stays mounted so Polaris can animate it; the form inside is
  * remounted (via `formKey`) each time it opens, which resets its state.
@@ -48,14 +60,23 @@ const FIELD_ORDER = [
  * @param {{
  *   open: boolean,
  *   formKey: number,           Changes every time the modal is opened
+ *   type?: "countdown" | "evergreen", Type of timer to create (an edited timer has its own)
  *   timer?: object | null,     Timer to edit; omit to create a new one
- *   timeZone: string,          Shop time zone used for scheduling
+ *   timeZone?: string,         Shop time zone used for countdown schedules
  *   onClose: () => void,
  * }} props
  */
-export function TimerFormModal({ open, formKey, timer = null, timeZone, onClose }) {
+export function TimerFormModal({
+  open,
+  formKey,
+  type: typeToCreate = "countdown",
+  timer = null,
+  timeZone,
+  onClose,
+}) {
   const { t } = useTranslation();
   const modalRef = useRef(null);
+  const type = timer?.type ?? typeToCreate;
 
   // Sync the Polaris overlay with the `open` prop.
   useEffect(() => {
@@ -69,10 +90,10 @@ export function TimerFormModal({ open, formKey, timer = null, timeZone, onClose 
     <s-modal
       ref={modalRef}
       id={TIMER_FORM_MODAL_ID}
-      heading={timer ? t("TimerForm.editHeading") : t("TimerForm.createHeading")}
+      heading={timer ? t(`TimerForm.editHeading.${type}`) : t(`TimerForm.createHeading.${type}`)}
       onhide={onClose}
     >
-      <TimerForm key={formKey} timer={timer} timeZone={timeZone} onClose={onClose} />
+      <TimerForm key={formKey} type={type} timer={timer} timeZone={timeZone} onClose={onClose} />
     </s-modal>
   );
 }
@@ -85,7 +106,7 @@ export function TimerFormModal({ open, formKey, timer = null, timeZone, onClose 
  * `addEventListener(name)` calls on the element itself, which is required for
  * Polaris-specific events like `hide` and keeps field events consistent with them.
  */
-function TimerForm({ timer, timeZone, onClose }) {
+function TimerForm({ type, timer, timeZone, onClose }) {
   const { t, i18n } = useTranslation();
   const shopify = useAppBridge();
   const formRef = useRef(null);
@@ -93,14 +114,15 @@ function TimerForm({ timer, timeZone, onClose }) {
   const locale = i18n.language;
 
   const [form, setForm] = useState(() =>
-    timer ? formFromTimer(timer, locale) : createEmptyForm(),
+    timer ? formFromTimer(timer, locale) : createEmptyForm(type),
   );
   const [showErrors, setShowErrors] = useState(false);
   const [serverErrors, setServerErrors] = useState({});
   const [formError, setFormError] = useState(null);
 
   const isEditing = Boolean(timer);
-  const initialEnd = timer ? `${timer.schedule.endDate}T${timer.schedule.endTime}` : null;
+  const isEvergreen = type === "evergreen";
+  const initialEnd = timer?.schedule ? `${timer.schedule.endDate}T${timer.schedule.endTime}` : null;
 
   const clientErrors = useMemo(
     () => validateTimerForm(form, { timeZone, initialEnd }),
@@ -110,18 +132,28 @@ function TimerForm({ timer, timeZone, onClose }) {
   function errorFor(field) {
     if (serverErrors[field]) return serverErrors[field];
     if (!showErrors || !clientErrors[field]) return undefined;
-    return t(`TimerForm.errors.${clientErrors[field]}`, {
-      max: field === "name" ? TIMER_LIMITS.NAME_MAX_LENGTH : TIMER_LIMITS.DESCRIPTION_MAX_LENGTH,
+    return t(`TimerForm.errors.${clientErrors[field]}`, ERROR_PARAMS[field]);
+  }
+
+  /** Removes server errors for these fields once the merchant edits them. */
+  function clearServerErrors(...fields) {
+    setServerErrors((current) => {
+      if (!fields.some((field) => field in current)) return current;
+      const rest = { ...current };
+      for (const field of fields) delete rest[field];
+      return rest;
     });
   }
 
   function update(field, value) {
     setForm((current) => ({ ...current, [field]: value }));
-    setServerErrors((current) => {
-      if (!(field in current)) return current;
-      const { [field]: _removed, ...rest } = current;
-      return rest;
-    });
+    clearServerErrors(field);
+  }
+
+  function updateDuration(field, value) {
+    update(field, value);
+    // A server error about the total belongs to every part of the duration.
+    clearServerErrors("duration");
   }
 
   function normalizeTime(field) {
@@ -130,7 +162,9 @@ function TimerForm({ timer, timeZone, onClose }) {
   }
 
   function revealFirstError(fields) {
-    const first = FIELD_ORDER.find((field) => fields[field]);
+    let first = FIELD_ORDER.find((field) => fields[field]);
+    // A problem with the total duration is fixed in its first field.
+    if (first === "duration") first = DURATION_FIELDS[0].field;
     const element = first && formRef.current?.querySelector(`[data-field="${first}"]`);
     element?.scrollIntoView({ behavior: "smooth", block: "center" });
     element?.focus?.();
@@ -166,19 +200,33 @@ function TimerForm({ timer, timeZone, onClose }) {
   const errorCount = showErrors
     ? new Set([...Object.keys(clientErrors), ...Object.keys(serverErrors)]).size
     : Object.keys(serverErrors).length;
+  // Server errors with no field on the form to show them (e.g. about the type).
+  const otherServerErrors = Object.entries(serverErrors)
+    .filter(([field]) => !FORM_FIELDS.has(field))
+    .map(([, message]) => message);
 
-  const previewEndsAt =
-    clientErrors.endDate || clientErrors.endTime
-      ? null
-      : zonedWallTimeToEpoch(form.endDate, form.endTime, timeZone);
-  // A blank start means "now", which the preview assumes when this is null.
-  const previewStartsAt =
-    !form.startDate || clientErrors.startDate || clientErrors.startTime
-      ? null
-      : zonedWallTimeToEpoch(form.startDate, form.startTime, timeZone);
+  let previewStartsAt = null;
+  let previewEndsAt = null;
+  let previewDuration = null;
+  if (isEvergreen) {
+    // Plays from the full duration, as for a shopper arriving now.
+    const minutes = durationFromForm(form);
+    if (isValidDuration(minutes)) previewDuration = minutes * MINUTE_MS;
+  } else {
+    previewEndsAt =
+      clientErrors.endDate || clientErrors.endTime
+        ? null
+        : zonedWallTimeToEpoch(form.endDate, form.endTime, timeZone);
+    // A blank start means "now", which the preview assumes when this is null.
+    previewStartsAt =
+      !form.startDate || clientErrors.startDate || clientErrors.startTime
+        ? null
+        : zonedWallTimeToEpoch(form.startDate, form.startTime, timeZone);
+  }
   const timePlaceholder = t("TimerForm.timePlaceholder", {
     example: formatTimeOfDay("09:00", locale),
   });
+  const durationError = errorFor("duration");
 
   return (
     <>
@@ -191,6 +239,13 @@ function TimerForm({ timer, timeZone, onClose }) {
                 heading={formError ?? t("TimerForm.fixErrors", { count: errorCount })}
               >
                 {formError && errorCount > 0 && t("TimerForm.fixErrors", { count: errorCount })}
+                {otherServerErrors.length > 0 && (
+                  <s-unordered-list>
+                    {otherServerErrors.map((message) => (
+                      <s-list-item key={message}>{message}</s-list-item>
+                    ))}
+                  </s-unordered-list>
+                )}
               </s-banner>
             )}
 
@@ -206,54 +261,90 @@ function TimerForm({ timer, timeZone, onClose }) {
               oninput={(event) => update("name", event.currentTarget.value)}
             />
 
-            <s-stack gap="small-200">
-              <s-grid
-                gridTemplateColumns="@container (inline-size > 400px) 1fr 1fr, 1fr"
-                gap="base"
-              >
-                <s-date-field
-                  data-field="startDate"
-                  label={t("TimerForm.startDate")}
-                  value={form.startDate}
-                  error={errorFor("startDate")}
-                  onchange={(event) => update("startDate", event.currentTarget.value)}
-                />
-                <s-text-field
-                  data-field="startTime"
-                  label={t("TimerForm.startTime")}
-                  icon="clock"
-                  placeholder={timePlaceholder}
-                  autocomplete="off"
-                  value={form.startTime}
-                  error={errorFor("startTime")}
-                  oninput={(event) => update("startTime", event.currentTarget.value)}
-                  onBlur={() => normalizeTime("startTime")}
-                />
-                <s-date-field
-                  data-field="endDate"
-                  label={t("TimerForm.endDate")}
-                  required
-                  value={form.endDate}
-                  error={errorFor("endDate")}
-                  onchange={(event) => update("endDate", event.currentTarget.value)}
-                />
-                <s-text-field
-                  data-field="endTime"
-                  label={t("TimerForm.endTime")}
-                  required
-                  icon="clock"
-                  placeholder={timePlaceholder}
-                  autocomplete="off"
-                  value={form.endTime}
-                  error={errorFor("endTime")}
-                  oninput={(event) => update("endTime", event.currentTarget.value)}
-                  onBlur={() => normalizeTime("endTime")}
-                />
-              </s-grid>
-              <s-text color="subdued">
-                {t("TimerForm.scheduleHelp", { timeZone: describeTimeZone(timeZone, locale) })}
-              </s-text>
-            </s-stack>
+            {isEvergreen ? (
+              <s-stack gap="small-200" data-field="duration">
+                <s-text type="strong" id="timer-duration-label">
+                  {t("TimerForm.duration.label")}
+                </s-text>
+                <s-grid
+                  role="group"
+                  aria-labelledby="timer-duration-label"
+                  gridTemplateColumns="@container (inline-size > 360px) 1fr 1fr 1fr, 1fr"
+                  gap="base"
+                  alignItems="start"
+                >
+                  {DURATION_FIELDS.map(({ field, unit }) => (
+                    <s-number-field
+                      key={field}
+                      data-field={field}
+                      label={t(`TimerForm.duration.${unit}`)}
+                      inputMode="numeric"
+                      min={0}
+                      step={1}
+                      placeholder="0"
+                      autocomplete="off"
+                      value={form[field]}
+                      error={errorFor(field)}
+                      oninput={(event) => updateDuration(field, event.currentTarget.value)}
+                    />
+                  ))}
+                </s-grid>
+                {durationError && (
+                  <s-stack direction="inline" gap="small-300" alignItems="center">
+                    <s-icon type="alert-circle" tone="critical" size="small" />
+                    <s-text tone="critical">{durationError}</s-text>
+                  </s-stack>
+                )}
+                <s-text color="subdued">{t("TimerForm.duration.help")}</s-text>
+              </s-stack>
+            ) : (
+              <s-stack gap="small-200">
+                <s-grid
+                  gridTemplateColumns="@container (inline-size > 400px) 1fr 1fr, 1fr"
+                  gap="base"
+                >
+                  <s-date-field
+                    data-field="startDate"
+                    label={t("TimerForm.startDate")}
+                    value={form.startDate}
+                    error={errorFor("startDate")}
+                    onchange={(event) => update("startDate", event.currentTarget.value)}
+                  />
+                  <s-text-field
+                    data-field="startTime"
+                    label={t("TimerForm.startTime")}
+                    icon="clock"
+                    placeholder={timePlaceholder}
+                    autocomplete="off"
+                    value={form.startTime}
+                    error={errorFor("startTime")}
+                    oninput={(event) => update("startTime", event.currentTarget.value)}
+                    onBlur={() => normalizeTime("startTime")}
+                  />
+                  <s-date-field
+                    data-field="endDate"
+                    label={t("TimerForm.endDate")}
+                    required
+                    value={form.endDate}
+                    error={errorFor("endDate")}
+                    onchange={(event) => update("endDate", event.currentTarget.value)}
+                  />
+                  <s-text-field
+                    data-field="endTime"
+                    label={t("TimerForm.endTime")}
+                    required
+                    icon="clock"
+                    placeholder={timePlaceholder}
+                    autocomplete="off"
+                    value={form.endTime}
+                    error={errorFor("endTime")}
+                    oninput={(event) => update("endTime", event.currentTarget.value)}
+                    onBlur={() => normalizeTime("endTime")}
+                  />
+                </s-grid>
+                <s-text color="subdued">{t("TimerForm.scheduleHelp")}</s-text>
+              </s-stack>
+            )}
 
             <s-text-area
               data-field="description"
@@ -314,6 +405,7 @@ function TimerForm({ timer, timeZone, onClose }) {
                   description={form.description}
                   startsAt={previewStartsAt}
                   endsAt={previewEndsAt}
+                  duration={previewDuration}
                 />
               </s-stack>
             </s-grid>

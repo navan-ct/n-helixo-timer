@@ -28,7 +28,7 @@ export class ValidationError extends HttpError {
 }
 
 export class NotFoundError extends HttpError {
-  constructor(message = "The requested resource was not found.") {
+  constructor(message = "Not found.") {
     super(404, "NOT_FOUND", message);
     this.name = "NotFoundError";
   }
@@ -41,8 +41,8 @@ export class UpstreamError extends HttpError {
       timedOut ? 504 : 502,
       timedOut ? "SHOPIFY_TIMEOUT" : "SHOPIFY_REQUEST_FAILED",
       timedOut
-        ? "Shopify took too long to respond. Try again."
-        : "Shopify could not process the request. Try again.",
+        ? "Shopify took too long to respond. Please try again."
+        : "Couldn’t reach Shopify. Please try again.",
     );
     this.name = "UpstreamError";
   }

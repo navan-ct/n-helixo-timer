@@ -60,7 +60,7 @@ describe("timersApi", () => {
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response("<html>", { status: 502 })));
     await expect(timersApi.list({})).rejects.toMatchObject({
       status: 502,
-      message: "Something went wrong. Try again.",
+      message: "Something went wrong. Please try again.",
     });
   });
 });

@@ -1,8 +1,9 @@
 import { describe, expect, it } from "vitest";
 
-import { apiResponse, apiTimer, HOUR, NOW } from "../../test/helpers.js";
+import { apiEvergreenTimer, apiResponse, apiTimer, HOUR, NOW } from "../../test/helpers.js";
 
 import {
+  orderTimers,
   parseTimer,
   parseTimersResponse,
   readableTextColor,
@@ -21,7 +22,37 @@ describe("parseTimer", () => {
       color: "#008060",
       size: "medium",
       urgency: "color_pulse",
+      priority: 0,
     });
+  });
+
+  it("keeps an evergreen timer's duration, which has no fixed start or end", () => {
+    expect(parseTimer(apiEvergreenTimer({ priority: 3 }))).toEqual({
+      id: "e1",
+      type: "evergreen",
+      durationMinutes: 90,
+      message: "Your welcome offer ends in",
+      color: "#2c6ecb",
+      size: "medium",
+      urgency: "color_pulse",
+      priority: 3,
+    });
+  });
+
+  it.each([
+    ["no duration", { durationMinutes: undefined }],
+    ["a duration that isn't whole minutes", { durationMinutes: 1.5 }],
+    ["a zero duration", { durationMinutes: 0 }],
+    ["a duration over 365 days", { durationMinutes: 365 * 24 * 60 + 1 }],
+  ])("drops evergreen timers with %s", (_label, overrides) => {
+    expect(parseTimer(apiEvergreenTimer(overrides))).toBeNull();
+  });
+
+  it("round-trips its own output, as the cache stores it", () => {
+    for (const raw of [apiTimer({ priority: 2 }), apiEvergreenTimer()]) {
+      const parsed = parseTimer(raw);
+      expect(parseTimer(JSON.parse(JSON.stringify(parsed)))).toEqual(parsed);
+    }
   });
 
   it.each([
@@ -52,6 +83,25 @@ describe("parseTimersResponse", () => {
   it("rejects responses that aren't timer lists", () => {
     expect(parseTimersResponse(null)).toBeNull();
     expect(parseTimersResponse({ error: { code: "NOPE" } })).toBeNull();
+  });
+});
+
+describe("orderTimers", () => {
+  const at = (id, priority, endsAt) => ({ id, priority, startsAt: NOW - HOUR, endsAt });
+
+  it("puts more specific targeting first, then the timer that ends soonest", () => {
+    const ordered = orderTimers([
+      at("all-late", 1, NOW + 5 * HOUR),
+      at("all-soon", 1, NOW + HOUR),
+      at("product", 3, NOW + 9 * HOUR),
+      at("collection", 2, NOW + 2 * HOUR),
+    ]);
+    expect(ordered.map(({ id }) => id)).toEqual(["product", "collection", "all-soon", "all-late"]);
+  });
+
+  it("keeps the API's order for ties", () => {
+    const ordered = orderTimers([at("b", 1, NOW + HOUR), at("a", 1, NOW + HOUR)]);
+    expect(ordered.map(({ id }) => id)).toEqual(["b", "a"]);
   });
 });
 

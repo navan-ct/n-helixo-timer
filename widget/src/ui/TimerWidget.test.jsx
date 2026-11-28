@@ -1,7 +1,7 @@
 import { act, render } from "@testing-library/preact";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { apiTimer, HOUR, MINUTE, NOW } from "../../test/helpers.js";
+import { apiEvergreenTimer, apiTimer, HOUR, MINUTE, NOW } from "../../test/helpers.js";
 import * as clock from "../core/clock.js";
 import { parseTimer } from "../core/timer-data.js";
 
@@ -17,7 +17,7 @@ const STRINGS = {
   editorEmpty: "No timer is running for this product.",
   editorUnavailable: "Timers couldn't be loaded.",
 };
-const CONFIG = { locale: "en", designMode: false, visualPreview: false, strings: STRINGS };
+const CONFIG = { designMode: false, visualPreview: false, strings: STRINGS };
 
 /** A controllable feed, like core/feed.js exposes. */
 function fakeFeed(initial = { status: "ready", timers: [] }) {
@@ -173,6 +173,28 @@ describe("TimerWidget", () => {
     await advance(1_000);
     expect(container.querySelector(".hx-timer__message")).toHaveTextContent("Weekend sale");
     expect(container.querySelector(".hx-timer--ended")).toBeNull();
+  });
+
+  it("counts down an evergreen timer from this shopper's start", async () => {
+    // As the feed reports it: resolved to this shopper's start, 10 minutes ago.
+    const evergreen = {
+      ...parseTimer(apiEvergreenTimer({ durationMinutes: 30, urgency: "none" })),
+      startsAt: NOW - 10 * MINUTE,
+      endsAt: NOW + 20 * MINUTE,
+    };
+    const feed = fakeFeed({ status: "ready", timers: [evergreen] });
+    const { container } = renderWidget({ feed });
+
+    expect(container.querySelector(".hx-timer__message")).toHaveTextContent(
+      "Your welcome offer ends in",
+    );
+    expect(digits(container)).toEqual(["00", "00", "20", "00"]);
+    expect(container.querySelector(".hx-timer__progress-bar").style.transform).toBe(
+      `scaleX(${20 / 30})`,
+    );
+
+    await advance(20 * MINUTE);
+    expect(container.querySelector(".hx-timer")).toHaveClass("hx-timer--ended");
   });
 
   it("renders nothing, and takes no space, when no timer is running", () => {

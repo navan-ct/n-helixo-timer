@@ -125,4 +125,37 @@ describe("TimerPreview", () => {
       "scaleX(1)",
     );
   });
+
+  describe("evergreen duration", () => {
+    const progress = (container) =>
+      container.querySelector(".timer-preview__progress > span").style.transform;
+    const preview = (duration) => (
+      <TimerPreview color="#008060" size="medium" urgency="none" duration={duration} />
+    );
+
+    it("plays the full duration from now, as for a shopper arriving now", async () => {
+      const { container } = render(preview(90 * 60_000));
+      expect(digits(container)).toEqual(["00", "01", "30", "00"]);
+      expect(progress(container)).toBe("scaleX(1)");
+
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(45 * 60_000 + 10);
+      });
+      expect(digits(container)).toEqual(["00", "00", "45", "00"]);
+      // The clock ticks a few milliseconds past each second.
+      expect(Number(/scaleX\((.+)\)/.exec(progress(container))[1])).toBeCloseTo(0.5, 4);
+    });
+
+    it("starts over when the duration changes", async () => {
+      const { container, rerender } = render(preview(HOUR));
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(10 * 60_000 + 10);
+      });
+      expect(digits(container)).toEqual(["00", "00", "50", "00"]);
+
+      rerender(preview(2 * HOUR));
+      expect(digits(container)).toEqual(["00", "02", "00", "00"]);
+      expect(progress(container)).toBe("scaleX(1)");
+    });
+  });
 });

@@ -1,9 +1,11 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import {
+  apiEvergreenTimer,
   apiResponse,
   apiTimer,
   fakeFetch,
+  HOUR,
   MINUTE,
   NOW,
   resetVisibility,
@@ -99,7 +101,7 @@ describe("caching", () => {
     window.localStorage.setItem(
       CACHE_KEY,
       JSON.stringify({
-        v: 1,
+        v: 2,
         savedAt: NOW - 10 * MINUTE,
         refreshMs: MINUTE,
         offset: 0,
@@ -116,6 +118,15 @@ describe("caching", () => {
 
   it("ignores caches that are too old or corrupt", async () => {
     window.localStorage.setItem(CACHE_KEY, "{not json");
+    const { latest } = subscribe({ fetch: fakeFetch(() => new Promise(() => {})) });
+    expect(latest().status).toBe("loading");
+  });
+
+  it("ignores caches written by an earlier version of the widget", async () => {
+    window.localStorage.setItem(
+      CACHE_KEY,
+      JSON.stringify({ v: 1, savedAt: NOW, refreshMs: MINUTE, offset: 0, timers: [apiTimer()] }),
+    );
     const { latest } = subscribe({ fetch: fakeFetch(() => new Promise(() => {})) });
     expect(latest().status).toBe("loading");
   });
@@ -137,6 +148,91 @@ describe("caching", () => {
     const { latest } = subscribe({ fetch: fakeFetch() });
     await vi.advanceTimersByTimeAsync(0);
     expect(latest().status).toBe("ready");
+  });
+});
+
+describe("evergreen timers", () => {
+  it("reports them with this shopper's start and end", async () => {
+    const fetch = fakeFetch(() => apiResponse([apiEvergreenTimer({ durationMinutes: 90 })]));
+    const { latest } = subscribe({ fetch });
+    await vi.advanceTimersByTimeAsync(0);
+
+    expect(latest().timers).toMatchObject([
+      { id: "e1", type: "evergreen", startsAt: NOW, endsAt: NOW + 90 * MINUTE },
+    ]);
+  });
+
+  it("starts on the server's clock, not the device's", async () => {
+    // The device runs 5 minutes behind the server.
+    const fetch = fakeFetch(() =>
+      apiResponse([apiEvergreenTimer()], { serverTime: new Date(NOW + 5 * MINUTE).toISOString() }),
+    );
+    const { latest } = subscribe({ fetch });
+    await vi.advanceTimersByTimeAsync(0);
+
+    expect(latest().timers[0].startsAt).toBe(NOW + 5 * MINUTE);
+  });
+
+  it("keeps the same start on other products and later visits", async () => {
+    const fetch = fakeFetch(() => apiResponse([apiEvergreenTimer()]));
+    const first = subscribe({ fetch });
+    await vi.advanceTimersByTimeAsync(0);
+    first.unsubscribe();
+
+    vi.setSystemTime(NOW + 20 * MINUTE);
+    const other = subscribe({ fetch, productId: "1002", collectionIds: [] });
+    await vi.advanceTimersByTimeAsync(0);
+
+    expect(other.latest().timers[0]).toMatchObject({ startsAt: NOW, endsAt: NOW + 90 * MINUTE });
+  });
+
+  it("puts an evergreen timer ahead of a countdown when it ends sooner for this shopper", async () => {
+    // A new shopper's evergreen timer would end after the countdown...
+    window.localStorage.setItem(
+      "helixo-timer:evergreen:alpha-store.myshopify.com",
+      JSON.stringify({ v: 1, starts: { e1: NOW - 80 * MINUTE } }),
+    );
+    // ...so the API sends the countdown first.
+    const fetch = fakeFetch(() =>
+      apiResponse([apiTimer({ id: "countdown" }), apiEvergreenTimer({ durationMinutes: 3 * 60 })]),
+    );
+    const { latest } = subscribe({ fetch });
+    await vi.advanceTimersByTimeAsync(0);
+
+    // This shopper started 80 minutes ago: 1h40m left, against the countdown's 2h.
+    expect(latest().timers.map((timer) => timer.id)).toEqual(["e1", "countdown"]);
+  });
+
+  it("caches them without this shopper's start", async () => {
+    const fetch = fakeFetch(() => apiResponse([apiEvergreenTimer()]));
+    subscribe({ fetch });
+    await vi.advanceTimersByTimeAsync(0);
+
+    const cached = JSON.parse(window.localStorage.getItem(CACHE_KEY)).timers[0];
+    expect(cached).toMatchObject({ id: "e1", durationMinutes: 90 });
+    expect(cached).not.toHaveProperty("endsAt");
+  });
+
+  it("doesn't start them for the shopper in the theme editor", async () => {
+    const fetch = fakeFetch(() => apiResponse([apiEvergreenTimer()]));
+    const { latest } = subscribe({ fetch, useCache: false });
+    await vi.advanceTimersByTimeAsync(0);
+
+    expect(latest().timers[0].startsAt).toBe(NOW);
+    expect(window.localStorage.getItem("helixo-timer:evergreen:alpha-store.myshopify.com")).toBe(
+      null,
+    );
+  });
+
+  it("drops a running evergreen timer from view only when it runs out", async () => {
+    const fetch = fakeFetch(() => apiResponse([apiEvergreenTimer({ durationMinutes: 60 })]));
+    const { latest } = subscribe({ fetch });
+    await vi.advanceTimersByTimeAsync(0);
+
+    // Polling doesn't restart it.
+    await vi.advanceTimersByTimeAsync(2 * HOUR);
+    expect(fetch.mock.calls.length).toBeGreaterThan(1);
+    expect(latest().timers[0]).toMatchObject({ startsAt: NOW, endsAt: NOW + HOUR });
   });
 });
 

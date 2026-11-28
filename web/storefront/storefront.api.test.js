@@ -6,6 +6,8 @@ import {
   OTHER_SHOP,
   SHOP,
   buildStorefrontTestApp,
+  evergreenPayload,
+  insertEvergreenTimer,
   insertTimer,
   signedProxyQuery,
   startDatabase,
@@ -110,6 +112,7 @@ describe("GET /api/storefront/timers", () => {
           color: "#b98900",
           size: "large",
           urgency: "shake",
+          priority: 1,
         },
       ],
       serverTime: NOW.toISOString(),
@@ -160,6 +163,61 @@ describe("GET /api/storefront/timers", () => {
     expect(response.body.timers.map((timer) => timer.id)).toEqual([upcoming.id]);
   });
 
+  it("returns evergreen timers with their duration instead of a schedule", async () => {
+    const timer = await insertEvergreenTimer({
+      name: "Internal name",
+      description: "Your welcome offer ends in",
+      durationMinutes: 45,
+      color: "#2c6ecb",
+      size: "small",
+      urgency: "color_pulse",
+      target: productTarget(),
+    });
+
+    const response = await getTimers();
+
+    expect(response.body.timers).toEqual([
+      {
+        id: timer.id,
+        type: "evergreen",
+        durationMinutes: 45,
+        message: "Your welcome offer ends in",
+        color: "#2c6ecb",
+        size: "small",
+        urgency: "color_pulse",
+        priority: 3,
+      },
+    ]);
+  });
+
+  it("orders evergreen timers by targeting, then by when they'd end for a new shopper", async () => {
+    const countdown = await insertTimer({ endsAt: at(2 * HOUR) });
+    const shortEvergreen = await insertEvergreenTimer({ durationMinutes: 30 });
+    const longEvergreen = await insertEvergreenTimer({ durationMinutes: 5 * 60 });
+    const productEvergreen = await insertEvergreenTimer({
+      durationMinutes: 24 * 60,
+      target: productTarget(),
+    });
+
+    const response = await getTimers();
+
+    expect(response.body.timers.map(({ id, priority }) => [id, priority])).toEqual([
+      [productEvergreen.id, 3],
+      [shortEvergreen.id, 1],
+      [countdown.id, 1],
+      [longEvergreen.id, 1],
+    ]);
+  });
+
+  it("keeps sending evergreen timers however long ago they were created", async () => {
+    await insertEvergreenTimer({ createdAt: at(-365 * 24 * HOUR) });
+    await insertTimer({ startsAt: at(-5 * HOUR), endsAt: at(-HOUR) });
+
+    const response = await getTimers();
+
+    expect(response.body.timers.map((timer) => timer.type)).toEqual(["evergreen"]);
+  });
+
   it("only returns the signed shop's timers", async () => {
     await insertTimer({ shop: OTHER_SHOP });
     const response = await getTimers();
@@ -194,6 +252,14 @@ describe("GET /api/storefront/timers", () => {
 });
 
 describe("caching", () => {
+  it("shows evergreen timers created in the admin right away", async () => {
+    expect((await getTimers()).body.timers).toEqual([]);
+
+    await request(app).post("/api/timers").set("x-test-shop", SHOP).send(evergreenPayload());
+
+    expect((await getTimers()).body.timers).toMatchObject([{ type: "evergreen" }]);
+  });
+
   it("answers repeat requests from memory", async () => {
     await insertTimer();
     const find = vi.spyOn(Timer, "find");

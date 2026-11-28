@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   createEmptyForm,
+  durationFromForm,
   formFromTimer,
   mapServerFieldErrors,
   readableTextColor,
@@ -28,6 +29,15 @@ function validForm(overrides = {}) {
 
 const validate = (form, context = {}) =>
   validateTimerForm(form, { timeZone: TIME_ZONE, now: NOW, ...context });
+
+function validEvergreenForm(overrides = {}) {
+  return {
+    ...createEmptyForm("evergreen"),
+    name: "Welcome offer",
+    durationHours: "2",
+    ...overrides,
+  };
+}
 
 describe("validateTimerForm", () => {
   it("accepts a complete form", () => {
@@ -112,6 +122,7 @@ describe("toTimerPayload", () => {
       }),
     );
     expect(payload).toEqual({
+      type: "countdown",
       name: "Black Friday",
       description: "",
       startDate: "2026-11-29",
@@ -133,6 +144,70 @@ describe("toTimerPayload", () => {
     expect(payload.startTime).toBeNull();
     expect(payload.target).toEqual({ type: "all", resourceIds: [] });
   });
+
+  it("sends an evergreen timer's duration in minutes, without a schedule", () => {
+    const payload = toTimerPayload(
+      validEvergreenForm({ durationDays: "1", durationHours: "2", durationMinutes: "30" }),
+    );
+    expect(payload).toEqual({
+      type: "evergreen",
+      name: "Welcome offer",
+      description: "",
+      durationMinutes: 24 * 60 + 2 * 60 + 30,
+      color: "#008060",
+      size: "medium",
+      urgency: "color_pulse",
+      target: { type: "all", resourceIds: [] },
+    });
+  });
+});
+
+describe("evergreen duration", () => {
+  it("counts blank units as zero and lets units overflow", () => {
+    expect(durationFromForm({ durationDays: "", durationHours: " ", durationMinutes: "90" })).toBe(
+      90,
+    );
+    expect(durationFromForm({ durationDays: "1", durationHours: "", durationMinutes: "" })).toBe(
+      1_440,
+    );
+  });
+
+  it("accepts a duration from 1 minute to 365 days", () => {
+    expect(validate(validEvergreenForm({ durationHours: "", durationMinutes: "1" }))).toEqual({});
+    expect(validate(validEvergreenForm({ durationDays: "365", durationHours: "" }))).toEqual({});
+  });
+
+  it("requires a duration", () => {
+    expect(validate({ ...createEmptyForm("evergreen"), name: "Welcome" })).toEqual({
+      duration: "durationRequired",
+    });
+    expect(
+      validate(validEvergreenForm({ durationDays: "0", durationHours: "0", durationMinutes: "0" })),
+    ).toEqual({ duration: "durationRequired" });
+  });
+
+  it("caps the duration at 365 days", () => {
+    expect(validate(validEvergreenForm({ durationDays: "365", durationMinutes: "1" }))).toEqual({
+      duration: "durationTooLong",
+    });
+  });
+
+  it("flags units that aren't whole numbers", () => {
+    expect(
+      validate(
+        validEvergreenForm({ durationDays: "1.5", durationHours: "-1", durationMinutes: "x" }),
+      ),
+    ).toEqual({
+      durationDays: "durationPartInvalid",
+      durationHours: "durationPartInvalid",
+      durationMinutes: "durationPartInvalid",
+    });
+  });
+
+  it("ignores the countdown schedule", () => {
+    // Evergreen timers have no end date, and no time zone is needed.
+    expect(validateTimerForm(validEvergreenForm())).toEqual({});
+  });
 });
 
 describe("formFromTimer", () => {
@@ -152,6 +227,7 @@ describe("formFromTimer", () => {
       target: { type: "collections", resources: [{ id: "c1", title: "Summer" }] },
     };
     expect(formFromTimer(timer, "en-US")).toEqual({
+      ...createEmptyForm("countdown"),
       name: "Flash sale",
       description: "Today only",
       startDate: "2026-07-01",
@@ -165,13 +241,40 @@ describe("formFromTimer", () => {
       resources: [{ id: "c1", title: "Summer" }],
     });
   });
+
+  it("splits an evergreen timer's duration into days, hours and minutes", () => {
+    const timer = {
+      type: "evergreen",
+      name: "Welcome offer",
+      description: "",
+      durationMinutes: 2 * 24 * 60 + 90,
+      color: "#008060",
+      size: "small",
+      urgency: "none",
+      target: { type: "all", resources: [] },
+    };
+    expect(formFromTimer(timer, "en-US")).toMatchObject({
+      type: "evergreen",
+      name: "Welcome offer",
+      durationDays: "2",
+      durationHours: "1",
+      durationMinutes: "30",
+      startDate: "",
+      endDate: "",
+    });
+  });
 });
 
 describe("mapServerFieldErrors", () => {
   it("maps API field paths onto form fields", () => {
     expect(
-      mapServerFieldErrors({ "target.resourceIds": "Gone", name: "Required", endTime: "Past" }),
-    ).toEqual({ resources: "Gone", name: "Required", endTime: "Past" });
+      mapServerFieldErrors({
+        "target.resourceIds": "Gone",
+        name: "Required",
+        endTime: "Past",
+        durationMinutes: "Too long",
+      }),
+    ).toEqual({ resources: "Gone", name: "Required", endTime: "Past", duration: "Too long" });
   });
 });
 

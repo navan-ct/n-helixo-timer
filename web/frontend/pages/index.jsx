@@ -48,8 +48,11 @@ export default function HomePage() {
                 <s-button variant="primary" icon="external" href={editorUrl} target="_blank">
                   {t("HomePage.addBlock")}
                 </s-button>
-                <s-button variant="tertiary" href="/countdown-timers">
-                  {t("HomePage.createTimer")}
+                <s-button variant="secondary" href="/countdown-timers">
+                  {t("HomePage.createCountdownTimer")}
+                </s-button>
+                <s-button variant="secondary" href="/evergreen-timers">
+                  {t("HomePage.createEvergreenTimer")}
                 </s-button>
               </s-stack>
             </s-stack>

@@ -27,7 +27,7 @@ export function verifyAppProxy({ validateSignature }) {
 
     const shop = typeof req.query.shop === "string" ? req.query.shop.toLowerCase() : "";
     if (!valid || !SHOP_DOMAIN.test(shop)) {
-      next(new HttpError(401, "INVALID_SIGNATURE", "This request didn't come from Shopify."));
+      next(new HttpError(401, "INVALID_SIGNATURE", "This request didn’t come from Shopify."));
       return;
     }
 

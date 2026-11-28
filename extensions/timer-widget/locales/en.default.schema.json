@@ -4,7 +4,7 @@
       "name": "Timer",
       "settings": {
         "info": {
-          "content": "Shows the timer that applies to this product. Create and schedule timers in the app."
+          "content": "Shows the timer for this product. Manage timers in the app."
         },
         "alignment": {
           "label": "Alignment",

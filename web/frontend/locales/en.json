@@ -1,32 +1,34 @@
 {
   "DeleteTimer": {
-    "body": "“{{name}}” will stop showing on your store. This can’t be undone.",
+    "body": "Are you sure you want to delete “{{name}}”? This can’t be undone.",
     "cancel": "Cancel",
-    "confirm": "Delete timer",
+    "confirm": "Delete",
     "heading": "Delete timer?",
     "toast": "Timer deleted"
   },
   "ExitIframe": {
-    "body": "Apps can only use /exitiframe to reach Shopify or the app itself.",
-    "heading": "Redirecting outside of Shopify"
+    "body": "This link can’t be opened from the app.",
+    "heading": "Can’t open this link"
   },
   "HomePage": {
     "heading": "Show timers on your product pages",
-    "body": "Add the Timer block to your product page in the theme editor. It shows the countdown timer that applies to each product, and hides itself when none is running.",
+    "body": "Add the Timer block to your product page in the theme editor. It shows the timer that applies to each product.",
     "steps": {
-      "add": "Select Add to product page, then save the theme editor.",
-      "move": "Drag the block to where it fits best, such as above the Add to cart button.",
-      "create": "Create a countdown timer and choose the products it applies to."
+      "add": "Click Add to product page, then click Save in the theme editor.",
+      "move": "Move the block to where you want it on the page.",
+      "create": "Create a countdown or evergreen timer."
     },
     "addBlock": "Add to product page",
-    "createTimer": "Create countdown timer"
+    "createCountdownTimer": "Create countdown timer",
+    "createEvergreenTimer": "Create evergreen timer"
   },
   "NavigationMenu": {
-    "countdownTimers": "Countdown Timers"
+    "countdownTimers": "Countdown Timers",
+    "evergreenTimers": "Evergreen Timers"
   },
   "NotFound": {
-    "description": "Check the URL and try again, or go to the app’s home page.",
-    "heading": "There is no page at this address",
+    "description": "The page you’re looking for doesn’t exist.",
+    "heading": "Page not found",
     "backToHome": "Go to home"
   },
   "TargetPicker": {
@@ -58,42 +60,58 @@
       "label": "Timer color"
     },
     "create": "Create timer",
-    "createHeading": "Create new timer",
+    "createHeading": {
+      "countdown": "Create countdown timer",
+      "evergreen": "Create evergreen timer"
+    },
     "description": {
-      "details": "Shown above the countdown on product pages.",
+      "details": "Shown above the timer on product pages.",
       "label": "Promotion description",
       "placeholder": "Enter promotion details"
     },
-    "editHeading": "Edit timer",
+    "duration": {
+      "days": "Days",
+      "help": "Each visitor’s timer runs for this long after their first visit.",
+      "hours": "Hours",
+      "label": "Timer duration",
+      "minutes": "Minutes"
+    },
+    "editHeading": {
+      "countdown": "Edit countdown timer",
+      "evergreen": "Edit evergreen timer"
+    },
     "endDate": "End date",
     "endTime": "End time",
     "errors": {
       "collectionsRequired": "Select at least one collection.",
-      "colorInvalid": "Enter a hex color such as #008060.",
-      "descriptionTooLong": "Use {{max}} characters or fewer.",
-      "endBeforeStart": "End must be after the start date and time.",
+      "colorInvalid": "Enter a valid hex color.",
+      "descriptionTooLong": "Description can’t be longer than {{max}} characters.",
+      "durationPartInvalid": "Enter a whole number.",
+      "durationRequired": "Enter a duration.",
+      "durationTooLong": "Duration can’t be longer than {{max}} days.",
+      "endBeforeStart": "End must be after the start.",
       "endDateRequired": "Enter an end date.",
       "endInPast": "End must be in the future.",
       "endTimeRequired": "Enter an end time.",
       "nameRequired": "Enter a timer name.",
-      "nameTooLong": "Use {{max}} characters or fewer.",
+      "nameTooLong": "Name can’t be longer than {{max}} characters.",
       "productsRequired": "Select at least one product.",
-      "startDateRequired": "Enter a start date, or clear the start time.",
-      "startTimeRequired": "Enter a start time, or clear the start date.",
-      "timeInvalid": "Enter a time such as 9:30 AM or 21:30."
+      "startDateRequired": "Enter a start date.",
+      "startTimeRequired": "Enter a start time.",
+      "timeInvalid": "Enter a valid time, e.g. 9:30 AM."
     },
     "fixErrors": {
       "one": "Fix {{count}} error to save this timer",
       "other": "Fix {{count}} errors to save this timer"
     },
-    "genericError": "We couldn’t save this timer. Try again.",
+    "genericError": "Couldn’t save the timer. Please try again.",
     "name": {
       "label": "Timer name",
       "placeholder": "Enter timer name"
     },
     "preview": "Preview",
     "save": "Save",
-    "scheduleHelp": "Times are in your store’s time zone: {{timeZone}}. Leave the start empty to start right away.",
+    "scheduleHelp": "Times are in your store’s time zone. Leave the start blank to start right away.",
     "serverValidation": "Some fields need your attention",
     "size": {
       "label": "Timer size",
@@ -133,6 +151,7 @@
     "columns": {
       "actions": "Actions",
       "appliesTo": "Applies to",
+      "duration": "Duration",
       "ends": "Ends",
       "starts": "Starts",
       "status": "Status",
@@ -142,19 +161,21 @@
     "edit": "Edit",
     "label": "Timers",
     "noResults": {
-      "body": "Try changing the search or filters.",
-      "clear": "Clear search and filters",
+      "body": "Try changing your search or filters.",
+      "clear": "Clear filters",
       "heading": "No timers found"
     },
     "search": "Search timers",
     "sortBy": "Sort by",
     "sortOptions": {
-      "created_desc": "Recently created",
-      "end_asc": "End date (soonest first)",
+      "created_desc": "Newest first",
+      "duration_asc": "Duration (shortest)",
+      "duration_desc": "Duration (longest)",
+      "end_asc": "End date (soonest)",
       "name_asc": "Name (A–Z)",
       "name_desc": "Name (Z–A)",
-      "start_asc": "Start date (oldest first)",
-      "start_desc": "Start date (newest first)"
+      "start_asc": "Start date (earliest)",
+      "start_desc": "Start date (latest)"
     },
     "statusFilter": "Status",
     "statusOptions": {
@@ -176,15 +197,25 @@
     }
   },
   "TimersPage": {
-    "createTimer": "Create timer",
-    "emptyState": {
-      "body": "Add urgency to your promotions with countdown timers on your product pages.",
-      "heading": "Create your first countdown timer"
+    "countdown": {
+      "emptyState": {
+        "body": "Create a countdown timer to show it on your product pages.",
+        "heading": "No countdown timers yet"
+      },
+      "subtitle": "Create and manage timers that run on a fixed schedule.",
+      "title": "Countdown Timers"
     },
-    "loadError": "Timers couldn’t be loaded",
+    "createTimer": "Create timer",
+    "evergreen": {
+      "emptyState": {
+        "body": "Create an evergreen timer to show it on your product pages.",
+        "heading": "No evergreen timers yet"
+      },
+      "subtitle": "Create and manage timers that start when each visitor first sees them.",
+      "title": "Evergreen Timers"
+    },
+    "loadError": "Couldn’t load timers",
     "loading": "Loading timers",
-    "retry": "Try again",
-    "subtitle": "Create and manage countdown timers for your promotions.",
-    "title": "Countdown Timers"
+    "retry": "Try again"
   }
 }

@@ -59,7 +59,6 @@ function readConfig(element) {
     shop: dataset.shop || window.location.host,
     productId: NUMERIC_ID.test(dataset.productId ?? "") ? dataset.productId : "",
     collectionIds: (dataset.collectionIds ?? "").split(",").filter((id) => NUMERIC_ID.test(id)),
-    locale: dataset.locale || document.documentElement.lang || "en",
     designMode: dataset.designMode === "true",
     visualPreview: dataset.visualPreview === "true",
     strings: {
@@ -69,8 +68,8 @@ function readConfig(element) {
       hours: "Hrs",
       minutes: "Min",
       seconds: "Sec",
-      editorEmpty: "Preview: no timer is running for this product.",
-      editorUnavailable: "Preview: timers couldn’t be loaded.",
+      editorEmpty: "Preview only. No timer is active for this product.",
+      editorUnavailable: "Preview only. Couldn’t load timers.",
       ...strings,
     },
   };

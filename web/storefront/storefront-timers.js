@@ -19,9 +19,11 @@ const SPECIFICITY = { products: 3, collections: 2, all: 1 };
 
 const PROJECTION = {
   _id: 1,
+  type: 1,
   description: 1,
   startsAt: 1,
   endsAt: 1,
+  durationMinutes: 1,
   color: 1,
   size: 1,
   urgency: 1,
@@ -35,11 +37,15 @@ const collectionGid = (id) => `gid://shopify/Collection/${id}`;
 
 /** Prepares a stored timer for fast matching. Only data the storefront needs is kept. */
 function toCachedTimer(doc) {
+  const evergreen = doc.type === "evergreen";
   return {
     id: doc._id.toString(),
+    type: doc.type,
     message: doc.description,
-    startsAt: doc.startsAt.getTime(),
-    endsAt: doc.endsAt.getTime(),
+    // Evergreen timers have no schedule: each shopper's browser starts its own.
+    startsAt: evergreen ? null : doc.startsAt.getTime(),
+    endsAt: evergreen ? null : doc.endsAt.getTime(),
+    durationMinutes: evergreen ? doc.durationMinutes : null,
     createdAt: doc.createdAt?.getTime() ?? 0,
     color: doc.color,
     size: doc.size,
@@ -62,26 +68,53 @@ function specificityFor(timer, product, collections) {
   }
 }
 
-/** The public shape sent to the storefront. Merchant-only fields (name, targeting) stay private. */
-function toStorefrontTimer(timer) {
+/**
+ * Whether a timer can be on screen between now and `horizon`. Evergreen timers
+ * always can: the server can't know where each shopper's countdown is.
+ */
+function isLive(timer, currentTime, horizon) {
+  if (timer.type === "evergreen") return true;
+  return timer.endsAt > currentTime && timer.startsAt <= horizon;
+}
+
+/**
+ * When a timer ends, for ordering. An evergreen timer's end depends on the
+ * shopper; this is the end for a shopper who arrives now, the latest it can be.
+ */
+const endForOrdering = (timer, currentTime) =>
+  timer.type === "evergreen" ? currentTime + timer.durationMinutes * 60_000 : timer.endsAt;
+
+/**
+ * The public shape sent to the storefront. Merchant-only fields (name, targeting)
+ * stay private. The widget switches on `type` and skips types it doesn't know.
+ * `priority` is how specifically the timer targets the product (higher wins);
+ * the widget needs it to place evergreen timers once it knows when they end.
+ */
+function toStorefrontTimer(timer, priority) {
+  const period =
+    timer.type === "evergreen"
+      ? { durationMinutes: timer.durationMinutes }
+      : {
+          startsAt: new Date(timer.startsAt).toISOString(),
+          endsAt: new Date(timer.endsAt).toISOString(),
+        };
   return {
     id: timer.id,
-    // Every timer is a countdown today; the widget switches on `type` so other
-    // kinds of timers can be added without changing this contract.
-    type: "countdown",
-    startsAt: new Date(timer.startsAt).toISOString(),
-    endsAt: new Date(timer.endsAt).toISOString(),
+    type: timer.type,
+    ...period,
     message: timer.message,
     color: timer.color,
     size: timer.size,
     urgency: timer.urgency,
+    priority,
   };
 }
 
 /**
  * Read model for the storefront widget.
  *
- * Each shop's unexpired timers are loaded with one query and cached in memory,
+ * Each shop's unexpired timers (countdowns that haven't ended, and every
+ * evergreen timer) are loaded with one query and cached in memory,
  * so storefront traffic (every product view, every poll) is answered without
  * touching MongoDB. Concurrent misses for the same shop share one query. The
  * admin API calls `invalidate(shop)` after every change so this instance picks
@@ -116,7 +149,8 @@ export function createStorefrontTimers({
   }
 
   async function load(shop) {
-    const docs = await Timer.find({ shop, endsAt: { $gt: now() } }, PROJECTION)
+    const live = { $or: [{ type: "evergreen" }, { endsAt: { $gt: now() } }] };
+    const docs = await Timer.find({ shop, ...live }, PROJECTION)
       .sort({ startsAt: 1, _id: 1 })
       .limit(TIMER_LIMITS.MAX_TIMERS_PER_SHOP)
       .lean();
@@ -153,7 +187,8 @@ export function createStorefrontTimers({
     /**
      * Timers to show on one product page, in priority order: the widget shows
      * the first one that is running. Products beat collections, collections beat
-     * "all products", and among equals the one ending soonest wins.
+     * "all products", and among equals the one ending soonest wins (the widget
+     * re-checks that once it knows when each shopper's evergreen timers end).
      *
      * @param {string} shop
      * @param {{ productId: string, collectionIds: string[] }} product Numeric IDs from Liquid
@@ -167,22 +202,24 @@ export function createStorefrontTimers({
 
       const matches = [];
       for (const timer of timers) {
-        if (timer.endsAt <= currentTime || timer.startsAt > horizon) continue;
+        if (!isLive(timer, currentTime, horizon)) continue;
         const specificity = specificityFor(timer, product, collections);
-        if (specificity > 0) matches.push({ timer, specificity });
+        if (specificity > 0) {
+          matches.push({ timer, specificity, endsAt: endForOrdering(timer, currentTime) });
+        }
       }
 
       matches.sort(
         (a, b) =>
           b.specificity - a.specificity ||
-          a.timer.endsAt - b.timer.endsAt ||
+          a.endsAt - b.endsAt ||
           b.timer.createdAt - a.timer.createdAt,
       );
 
       return {
         timers: matches
           .slice(0, MAX_TIMERS_PER_RESPONSE)
-          .map(({ timer }) => toStorefrontTimer(timer)),
+          .map(({ timer, specificity }) => toStorefrontTimer(timer, specificity)),
         serverTime: new Date(currentTime).toISOString(),
         refreshInterval: REFRESH_INTERVAL_SECONDS,
       };

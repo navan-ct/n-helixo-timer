@@ -32,9 +32,12 @@ function Digit({ value, previous }) {
 /** Two-digit (or longer) text for a unit, as digits from the right: ones place first. */
 const digitsFromRight = (value) => String(value).padStart(2, "0").split("").reverse();
 
-function formatUnit(value, unit, locale) {
+/** The storefront text is in English, so spoken durations are too. */
+const LOCALE = "en";
+
+function formatUnit(value, unit) {
   try {
-    return new Intl.NumberFormat(locale, { style: "unit", unit, unitDisplay: "long" }).format(
+    return new Intl.NumberFormat(LOCALE, { style: "unit", unit, unitDisplay: "long" }).format(
       value,
     );
   } catch {
@@ -46,14 +49,14 @@ function formatUnit(value, unit, locale) {
  * What screen readers hear, at minute resolution so it doesn't churn every
  * second (seconds are only spelled out in the final minute).
  */
-function spokenDuration({ days, hours, minutes, seconds }, locale) {
+function spokenDuration({ days, hours, minutes, seconds }) {
   const parts = [];
-  if (days) parts.push(formatUnit(days, "day", locale));
-  if (hours) parts.push(formatUnit(hours, "hour", locale));
-  if (minutes) parts.push(formatUnit(minutes, "minute", locale));
-  if (!days && !hours && !minutes) parts.push(formatUnit(seconds, "second", locale));
+  if (days) parts.push(formatUnit(days, "day"));
+  if (hours) parts.push(formatUnit(hours, "hour"));
+  if (minutes) parts.push(formatUnit(minutes, "minute"));
+  if (!days && !hours && !minutes) parts.push(formatUnit(seconds, "second"));
   try {
-    return new Intl.ListFormat(locale, { style: "long", type: "unit" }).format(parts);
+    return new Intl.ListFormat(LOCALE, { style: "long", type: "unit" }).format(parts);
   } catch {
     return parts.join(", ");
   }
@@ -68,10 +71,9 @@ function spokenDuration({ days, hours, minutes, seconds }, locale) {
  *   now: number,
  *   ended?: boolean,
  *   strings: Record<string, string>,
- *   locale: string,
  * }} props
  */
-export function Countdown({ timer, now, ended = false, strings, locale }) {
+export function Countdown({ timer, now, ended = false, strings }) {
   const remaining = ended ? 0 : Math.max(0, timer.endsAt - now);
   // Round up to whole seconds, like any countdown: "00:00:01" during the last
   // second, and zero only when the timer has actually ended.
@@ -89,7 +91,7 @@ export function Countdown({ timer, now, ended = false, strings, locale }) {
   if (ended) classes.push("hx-timer--ended");
 
   const message = ended ? strings.ended : timer.message || strings.message;
-  const spoken = ended ? strings.ended : `${message} ${spokenDuration(parts, locale)}`;
+  const spoken = ended ? strings.ended : `${message} ${spokenDuration(parts)}`;
 
   return (
     <div

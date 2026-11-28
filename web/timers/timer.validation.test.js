@@ -56,6 +56,46 @@ describe("timerInputSchema", () => {
     expect(parsed).toMatchObject({ name: "Flash sale", color: "#00aa88" });
   });
 
+  it("treats a payload without a type as a countdown, with no start", () => {
+    const { startDate: _date, startTime: _time, ...payload } = timerPayload();
+    expect(parseOrThrow(timerInputSchema, payload)).toMatchObject({
+      type: "countdown",
+      startDate: null,
+      startTime: null,
+    });
+  });
+
+  it("accepts an evergreen payload without a schedule", () => {
+    const parsed = parseOrThrow(timerInputSchema, {
+      type: "evergreen",
+      name: "Welcome offer",
+      durationMinutes: 45,
+      color: "#008060",
+      size: "small",
+      urgency: "none",
+      target: { type: "all" },
+    });
+    expect(parsed).toEqual({
+      type: "evergreen",
+      name: "Welcome offer",
+      description: "",
+      durationMinutes: 45,
+      color: "#008060",
+      size: "small",
+      urgency: "none",
+      target: { type: "all", resourceIds: [] },
+    });
+  });
+
+  it("requires countdown fields on countdowns only", () => {
+    expect(fieldErrors({ ...timerPayload(), type: "countdown", endDate: undefined })).toEqual({
+      endDate: "Enter an end date.",
+    });
+    expect(fieldErrors({ ...timerPayload(), durationMinutes: 30 })._root).toMatch(
+      /Unknown field: durationMinutes/,
+    );
+  });
+
   it("treats a blank start as 'start immediately'", () => {
     const parsed = parseOrThrow(timerInputSchema, timerPayload({ startDate: "", startTime: "" }));
     expect(parsed.startDate).toBeNull();
@@ -171,6 +211,7 @@ describe("timerInputSchema", () => {
 describe("listQuerySchema", () => {
   it("applies defaults", () => {
     expect(parseOrThrow(listQuerySchema, {})).toEqual({
+      type: "countdown",
       query: "",
       status: "all",
       sort: "created_desc",

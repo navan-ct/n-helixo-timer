@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 
 import { mockFetch, renderWithProviders, setFieldValue } from "../test/render";
 
-import TimersPage from "./countdown-timers";
+import CountdownTimersPage from "./countdown-timers";
 
 function apiTimer(overrides = {}) {
   return {
@@ -43,10 +43,10 @@ function listResponse(timers, pageInfo = {}) {
   };
 }
 
-describe("TimersPage", () => {
+describe("CountdownTimersPage", () => {
   it("lists timers with their status, targets and schedule", async () => {
     mockFetch(() => [200, listResponse([apiTimer()])]);
-    const { container } = renderWithProviders(<TimersPage />);
+    const { container } = renderWithProviders(<CountdownTimersPage />);
 
     expect(await screen.findByText("Black Friday Sale")).toBeInTheDocument();
     expect(container.querySelector("s-badge")).toHaveTextContent("Scheduled");
@@ -64,7 +64,7 @@ describe("TimersPage", () => {
           respond = resolve;
         }),
     );
-    const { container } = renderWithProviders(<TimersPage />);
+    const { container } = renderWithProviders(<CountdownTimersPage />);
 
     const spinner = container.querySelector("s-spinner");
     expect(spinner).toHaveAttribute("accessibilityLabel", "Loading timers");
@@ -77,9 +77,32 @@ describe("TimersPage", () => {
     expect(container.querySelector("s-spinner")).toBeNull();
   });
 
+  it("gives the spinner and the empty state the same height, so the page doesn't shift", async () => {
+    let respond;
+    mockFetch(
+      () =>
+        new Promise((resolve) => {
+          respond = resolve;
+        }),
+    );
+    const { container } = renderWithProviders(<CountdownTimersPage />);
+    const loadingHeight = container
+      .querySelector("s-spinner")
+      .parentElement.getAttribute("minBlockSize");
+
+    await act(async () => respond([200, listResponse([])]));
+
+    await waitFor(() => expect(container.querySelector("s-empty-state")).not.toBeNull());
+    expect(loadingHeight).toMatch(/^\d+px$/);
+    expect(container.querySelector("s-empty-state").parentElement).toHaveAttribute(
+      "minBlockSize",
+      loadingHeight,
+    );
+  });
+
   it("goes straight from the spinner to the empty state when there are no timers", async () => {
     mockFetch(() => [200, listResponse([])]);
-    const { container } = renderWithProviders(<TimersPage />);
+    const { container } = renderWithProviders(<CountdownTimersPage />);
     expect(container.querySelector("s-spinner")).not.toBeNull();
 
     await waitFor(() => expect(container.querySelector("s-empty-state")).not.toBeNull());
@@ -89,20 +112,25 @@ describe("TimersPage", () => {
 
   it("shows an empty state before any timers exist", async () => {
     mockFetch(() => [200, listResponse([])]);
-    const { container } = renderWithProviders(<TimersPage />);
+    const { container } = renderWithProviders(<CountdownTimersPage />);
 
     await waitFor(() =>
       expect(container.querySelector("s-empty-state")).toHaveAttribute(
         "heading",
-        "Create your first countdown timer",
+        "No countdown timers yet",
       ),
     );
+    expect(container.querySelector('s-empty-state > s-icon[slot="graphic"]')).toHaveAttribute(
+      "type",
+      "calendar-time",
+    );
+    expect(container.querySelector("s-empty-state s-image")).toBeNull();
     expect(container.querySelector("s-table")).toBeNull();
   });
 
   it("sends search, filter and sort to the API", async () => {
     const fetchMock = mockFetch(() => [200, listResponse([apiTimer()])]);
-    const { container } = renderWithProviders(<TimersPage />);
+    const { container } = renderWithProviders(<CountdownTimersPage />);
     await screen.findByText("Black Friday Sale");
 
     const [statusSelect, sortSelect] = container.querySelectorAll('[slot="filters"] s-select');
@@ -114,7 +142,7 @@ describe("TimersPage", () => {
 
     await waitFor(() =>
       expect(fetchMock).toHaveBeenLastCalledWith(
-        "/api/timers?query=friday&status=scheduled&sort=name_asc&page=1",
+        "/api/timers?type=countdown&query=friday&status=scheduled&sort=name_asc&page=1",
         expect.anything(),
       ),
     );
@@ -122,13 +150,22 @@ describe("TimersPage", () => {
 
   it("explains when filters match nothing", async () => {
     mockFetch((url) => [200, listResponse(url.includes("query=") ? [] : [apiTimer()])]);
-    const { container } = renderWithProviders(<TimersPage />);
+    const { container } = renderWithProviders(<CountdownTimersPage />);
     await screen.findByText("Black Friday Sale");
 
     await act(async () => setFieldValue(container.querySelector("s-search-field"), "nothing"));
+    await waitFor(() => expect(screen.queryByText("Black Friday Sale")).toBeNull());
 
-    expect(await screen.findByText("No timers found")).toBeInTheDocument();
-    expect(screen.getByText("Clear search and filters")).toBeInTheDocument();
+    // The table shows its empty state once it has no rows.
+    const emptyState = container.querySelector("s-table-body > s-empty-state");
+    expect(emptyState).toHaveAttribute("heading", "No timers found");
+    expect(emptyState.querySelector('s-icon[slot="graphic"]')).toHaveAttribute("type", "search");
+    const clear = emptyState.querySelector('s-button[slot="secondary-actions"]');
+    expect(clear).toHaveTextContent("Clear filters");
+    expect(clear).toHaveAttribute("variant", "secondary");
+
+    await act(async () => clear.click());
+    expect(await screen.findByText("Black Friday Sale")).toBeInTheDocument();
   });
 
   it("pages through results", async () => {
@@ -136,7 +173,7 @@ describe("TimersPage", () => {
       200,
       listResponse([apiTimer()], { total: 25, hasNextPage: !url.includes("page=2") }),
     ]);
-    const { container } = renderWithProviders(<TimersPage />);
+    const { container } = renderWithProviders(<CountdownTimersPage />);
     await screen.findByText("Black Friday Sale");
 
     const table = container.querySelector("s-table");
@@ -145,7 +182,7 @@ describe("TimersPage", () => {
 
     await waitFor(() =>
       expect(fetchMock).toHaveBeenLastCalledWith(
-        "/api/timers?status=all&sort=created_desc&page=2",
+        "/api/timers?type=countdown&status=all&sort=created_desc&page=2",
         expect.anything(),
       ),
     );
@@ -153,7 +190,7 @@ describe("TimersPage", () => {
 
   it("shows an error banner with a retry when loading fails", async () => {
     mockFetch(() => [500, { error: { message: "Database unavailable" } }]);
-    renderWithProviders(<TimersPage />);
+    renderWithProviders(<CountdownTimersPage />);
 
     expect(await screen.findByText("Database unavailable")).toBeInTheDocument();
     expect(screen.getByText("Try again")).toBeInTheDocument();
@@ -168,7 +205,7 @@ describe("TimersPage", () => {
       }
       return [200, listResponse(deleted ? [] : [apiTimer()])];
     });
-    const { container } = renderWithProviders(<TimersPage />);
+    const { container } = renderWithProviders(<CountdownTimersPage />);
     await screen.findByText("Black Friday Sale");
 
     const deleteAction = [...container.querySelectorAll("s-menu s-button")].find(
@@ -177,7 +214,9 @@ describe("TimersPage", () => {
     await act(async () => deleteAction.click());
 
     const confirmModal = container.querySelector("#delete-timer-modal");
-    expect(confirmModal).toHaveTextContent("“Black Friday Sale” will stop showing on your store.");
+    expect(confirmModal).toHaveTextContent(
+      "Are you sure you want to delete “Black Friday Sale”? This can’t be undone.",
+    );
 
     await act(async () => confirmModal.querySelector('[slot="primary-action"]').click());
 
